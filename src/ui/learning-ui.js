@@ -34,7 +34,8 @@ export function bindMobileNav(root = document) {
   const toggle = root.querySelector('[data-mobile-nav-toggle]');
   const sidebar = root.querySelector('.sidebar');
   const backdrop = root.querySelector('.sidebar-backdrop');
-  if (!toggle || !sidebar || !backdrop) return;
+  if (!toggle || !sidebar || !backdrop || toggle.dataset.mobileBound === '1') return;
+  toggle.dataset.mobileBound = '1';
 
   const close = () => {
     sidebar.classList.remove('open');
@@ -46,9 +47,13 @@ export function bindMobileNav(root = document) {
     backdrop.classList.add('open');
     toggle.setAttribute('aria-expanded','true');
   };
+
   toggle.addEventListener('click', () => sidebar.classList.contains('open') ? close() : open());
   backdrop.addEventListener('click', close);
-  sidebar.querySelectorAll('[data-lesson],[data-page]').forEach(el => el.addEventListener('click', close));
+  sidebar.querySelectorAll('[data-lesson],[data-page]').forEach(element => element.addEventListener('click', close));
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && sidebar.classList.contains('open')) close();
+  });
 }
 
 export function bindCurriculumFilters(root = document) {
@@ -57,7 +62,8 @@ export function bindCurriculumFilters(root = document) {
   const status = root.querySelector('#lesson-status-filter');
   const summary = root.querySelector('#filter-summary-text');
   const empty = root.querySelector('#filter-empty');
-  if (!query || !level || !status) return;
+  if (!query || !level || !status || query.dataset.filterBound === '1') return;
+  query.dataset.filterBound = '1';
 
   const apply = () => {
     const q = query.value.trim().toLowerCase();
@@ -88,6 +94,14 @@ export function bindCurriculumFilters(root = document) {
   query.addEventListener('input', apply);
   level.addEventListener('input', apply);
   status.addEventListener('input', apply);
+  document.addEventListener('keydown', event => {
+    const tag = document.activeElement?.tagName?.toLowerCase();
+    const typing = tag === 'input' || tag === 'textarea' || tag === 'select';
+    if (event.key === '/' && !typing) {
+      event.preventDefault();
+      query.focus();
+    }
+  });
   apply();
 }
 
