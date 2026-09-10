@@ -5,9 +5,12 @@ const state = { currentLesson: null };
 
 function lessonDescription(id) {
   const descriptions = {
+    'why-kubernetes': 'Start with the operational problems Kubernetes solves: failures, scaling, releases and service discovery — before learning the objects.',
     'cluster-architecture': 'Follow a Pod create request through the API server, etcd, controllers, scheduler, kubelet and container runtime — then break components to see what stops.',
+    'declarative-model': 'Create drift between desired and actual state, then run a reconciliation loop and see why controllers are the heart of Kubernetes.',
     'pods': 'Learn what a Pod really is, what containers inside it share, and why individual Pod IPs should be treated as replaceable.',
     'deployments': 'Create drift on purpose, watch reconciliation restore desired state, and step through a rolling update between ReplicaSets.',
+    'pod-lifecycle': 'Break readiness, liveness and startup probes independently to see how traffic admission and container restarts are different decisions.',
     'cpu-scheduling': 'See exactly how kube-scheduler placement and Linux cgroup CPU enforcement differ — then reproduce throttling yourself.',
     'memory': 'Compare memory requests with runtime limits and see why memory pressure can lead to OOM killing instead of CPU-style throttling.',
     'services': 'Toggle backend readiness, send requests through a Service, resolve cross-namespace DNS names, and compare Service exposure types.',
@@ -98,7 +101,7 @@ function home() {
         <h1>Stop memorizing.<br>Build the mental model.</h1>
         <p class="hero-copy">A visual playground for beginners who want to understand what Kubernetes is actually doing — from API objects and scheduling to networking, storage and troubleshooting.</p>
         <div class="chip-row" style="margin-top:22px">
-          <button class="primary-btn" data-lesson="cluster-architecture">Start the learning path →</button>
+          <button class="primary-btn" data-lesson="why-kubernetes">Start the learning path →</button>
           <span class="badge">No cluster required</span><span class="badge">GitHub Pages friendly</span>
         </div>
       </div>
