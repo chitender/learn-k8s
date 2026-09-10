@@ -1,4 +1,5 @@
 import { curriculum, lessonLoaders, findLesson } from './catalog.js';
+import { completedLessons, markLessonComplete, progressSnapshot, allAchievements, prereqState, awardChallenge } from './gamification.js';
 
 const app = document.querySelector('#app');
 const state = { currentLesson: null };
@@ -51,57 +52,77 @@ function lessonDescription(id) {
     'apiserver-etcd': 'Trace API requests through authentication, authorization, admission and persistence while testing what happens when authoritative storage is unavailable.',
     'leases-leader-election': 'Advance node heartbeat time and fail a simulated leader to understand why Lease objects are used for lightweight coordination.',
     'kubelet-internals': 'Run a kubelet sync loop across volumes, sandbox networking, image pulls, runtime health and readiness to see where Pod startup can block.',
-    'cri-runtime': 'Follow kubelet gRPC calls through CRI RuntimeService and ImageService, then break the runtime endpoint, sandbox or image pull.'
+    'cri-runtime': 'Follow kubelet gRPC calls through CRI RuntimeService and ImageService, then break the runtime endpoint, sandbox or image pull.',
+    'challenge-arena': 'Test your mental model with CKA-style fundamentals and SRE incident questions. Correct first-time solves earn bonus XP.',
+    'cluster-sandbox': 'Change scheduling, node health, CNI reachability, readiness and CPU demand in one connected cluster simulation.'
   };
-  return descriptions[id] || 'Interactive lesson coming soon.';
+  return descriptions[id] || 'Interactive Kubernetes lesson.';
 }
 
 function allLessons() {
-  return curriculum.flatMap((section) => section.lessons.map((lesson) => ({ ...lesson, section })));
+  return curriculum.flatMap(section => section.lessons.map(lesson => ({ ...lesson, section })));
 }
 
-function readyCount() {
-  return allLessons().filter((lesson) => lesson.status === 'ready').length;
+function readyLessons() {
+  return allLessons().filter(lesson => lesson.status === 'ready');
 }
 
-function completedSet() {
-  try { return new Set(JSON.parse(localStorage.getItem('learn-k8s-completed') || '[]')); }
-  catch { return new Set(); }
+function readyCount() { return readyLessons().length; }
+
+function titleFor(id) { return findLesson(id)?.title || id; }
+
+function recommendedLesson(completed, excludeId = null) {
+  const lessons = readyLessons().filter(l => l.id !== excludeId && !completed.has(l.id));
+  return lessons.find(l => prereqState(l.id, completed).met) || lessons[0] || null;
 }
 
-function saveCompleted(id) {
-  const set = completedSet();
-  set.add(id);
-  localStorage.setItem('learn-k8s-completed', JSON.stringify([...set]));
+function levelProgress(progress) {
+  if (!progress.next) return 100;
+  const span = progress.next.min - progress.current.min;
+  return Math.max(0, Math.min(100, ((progress.xp - progress.current.min) / span) * 100));
+}
+
+function progressPanel(progress, recommended) {
+  const all = allAchievements();
+  const unlocked = new Set(progress.unlocked.map(a => a.id));
+  const nextText = progress.next ? `${progress.next.min - progress.xp} XP to ${progress.next.name}` : 'Highest rank reached';
+  return `
+    <section class="panel" style="margin-top:18px">
+      <div class="section-head" style="margin:0 0 16px"><div><div class="eyebrow">Your learning journey</div><h2>Level ${progress.current.level} · ${progress.current.name}</h2></div>${recommended ? `<button class="primary-btn" data-lesson="${recommended.id}">Continue → ${recommended.title}</button>` : '<span class="badge">Curriculum complete 🏆</span>'}</div>
+      <div class="grid-3">
+        <div class="metric"><span>Total XP</span><strong>${progress.xp}</strong><p style="color:var(--muted);font-size:12px">${progress.lessonXP} lesson XP + ${progress.bonusXP} challenge XP</p></div>
+        <div class="metric"><span>Lessons complete</span><strong>${progress.completed.size}/${readyCount()}</strong><p style="color:var(--muted);font-size:12px">${progress.percent}% of the live curriculum</p></div>
+        <div class="metric"><span>Achievements</span><strong>${progress.unlocked.length}/${all.length}</strong><p style="color:var(--muted);font-size:12px">${nextText}</p></div>
+      </div>
+      <div style="margin-top:14px"><div class="node-row"><span>Rank progress</span><span>${Math.round(levelProgress(progress))}%</span></div><div class="bar quota"><i style="width:${levelProgress(progress)}%"></i></div></div>
+      <div class="chip-row" style="margin-top:16px">${all.map(a => `<span class="badge" style="opacity:${unlocked.has(a.id)?1:.38}" title="${a.detail}">${a.icon} ${a.title}</span>`).join('')}</div>
+      <div class="callout" style="margin-top:16px"><strong>Prerequisites are guidance, not gates.</strong><p>The site recommends a sensible order, but every lab remains open. Experienced learners can jump directly to the subsystem they want.</p></div>
+    </section>`;
 }
 
 function shell(content, activeId = null) {
+  const completed = completedLessons();
+  const progress = progressSnapshot(readyCount());
   return `
     <div class="shell">
       <header class="topbar">
-        <a class="brand" href="#/">
-          <span class="brand-mark">⎈</span>
-          <span>Learn Kubernetes<small>See it. Break it. Understand it.</small></span>
-        </a>
+        <a class="brand" href="#/"><span class="brand-mark">⎈</span><span>Learn Kubernetes<small>See it. Break it. Understand it.</small></span></a>
         <div class="top-actions">
-          <span class="badge hide-sm">${readyCount()} interactive module${readyCount() === 1 ? '' : 's'} live</span>
+          <span class="badge hide-sm">L${progress.current.level} · ${progress.xp} XP</span>
+          <span class="badge hide-sm">${progress.completed.size}/${readyCount()} complete</span>
           <a class="ghost-btn" href="https://github.com/chitender/learn-k8s" target="_blank" rel="noreferrer">GitHub ↗</a>
         </div>
       </header>
       <div class="layout">
         <aside class="sidebar">
           <div class="sidebar-label">Learning path</div>
-          ${curriculum.map((section) => `
-            <div class="nav-section">
-              <div class="nav-section-title">${section.title}</div>
-              ${section.lessons.map((lesson) => `
-                <button class="nav-link ${activeId === lesson.id ? 'active' : ''}" data-lesson="${lesson.id}" ${lesson.status !== 'ready' ? 'title="Coming soon"' : ''}>
-                  <span>${lesson.title}</span>
-                  <i class="status-dot status-${lesson.status}"></i>
-                </button>
-              `).join('')}
-            </div>
-          `).join('')}
+          ${curriculum.map(section => `
+            <div class="nav-section"><div class="nav-section-title">${section.title}</div>
+              ${section.lessons.map(lesson => {
+                const done = completed.has(lesson.id);
+                return `<button class="nav-link ${activeId===lesson.id?'active':''}" data-lesson="${lesson.id}"><span>${done?'✓ ':''}${lesson.title}</span>${done?'<span class="badge">+100</span>':'<i class="status-dot status-ready"></i>'}</button>`;
+              }).join('')}
+            </div>`).join('')}
         </aside>
         <main class="main"><div class="container">${content}</div></main>
       </div>
@@ -109,70 +130,49 @@ function shell(content, activeId = null) {
 }
 
 function home() {
-  const completed = completedSet();
-  const cards = curriculum.map((section) => `
+  const completed = completedLessons();
+  const progress = progressSnapshot(readyCount());
+  const recommended = recommendedLesson(completed);
+  const cards = curriculum.map(section => `
     <section>
-      <div class="section-head">
-        <div><div class="eyebrow">${section.title}</div><h2>${section.description}</h2></div>
-      </div>
+      <div class="section-head"><div><div class="eyebrow">${section.title}</div><h2>${section.description}</h2></div></div>
       <div class="curriculum-grid">
-        ${section.lessons.map((lesson) => `
-          <button class="lesson-card" data-lesson="${lesson.id}" ${lesson.status !== 'ready' ? 'disabled' : ''}>
-            <div class="card-top">
-              <span class="badge">${lesson.level}</span>
-              <span class="badge">${lesson.minutes} min</span>
-            </div>
-            <h3>${completed.has(lesson.id) ? '✓ ' : ''}${lesson.title}</h3>
-            <p>${lessonDescription(lesson.id)}</p>
-            <div class="go">${lesson.status === 'ready' ? 'Start interactive lesson →' : 'Coming soon'}</div>
-          </button>
-        `).join('')}
+        ${section.lessons.map(lesson => {
+          const gate = prereqState(lesson.id, completed);
+          const done = completed.has(lesson.id);
+          const missing = gate.missing.slice(0,2).map(titleFor).join(', ');
+          return `<button class="lesson-card" data-lesson="${lesson.id}">
+            <div class="card-top"><span class="badge">${lesson.level}</span><span class="badge">${done?'✓ Complete':`${lesson.minutes} min · +100 XP`}</span></div>
+            <h3>${lesson.title}</h3><p>${lessonDescription(lesson.id)}</p>
+            <div class="go">${done?'Review lesson ↻':gate.met?'Start interactive lesson →':`Suggested first: ${missing}${gate.missing.length>2?'…':''}`}</div>
+          </button>`;
+        }).join('')}
       </div>
     </section>`).join('');
 
   app.innerHTML = shell(`
     <section class="hero">
-      <div>
-        <div class="eyebrow">Interactive Kubernetes fundamentals → production internals</div>
-        <h1>Stop memorizing.<br>Build the mental model.</h1>
-        <p class="hero-copy">A visual playground for beginners and SREs who want to understand what Kubernetes is actually doing — from API objects and scheduling to Linux runtime behavior, networking, storage, security and incident diagnosis.</p>
-        <div class="chip-row" style="margin-top:22px">
-          <button class="primary-btn" data-lesson="why-kubernetes">Start the learning path →</button>
-          <span class="badge">No cluster required</span><span class="badge">47 interactive labs</span>
-        </div>
-      </div>
-      <div class="hero-card">
-        <div class="terminal">
-          <div><span class="green">$</span> kubectl apply -f app.yaml</div>
-          <div class="cyan">deployment.apps/web created</div><br>
-          <div class="amber"># What happens after this?</div>
-          <div># API server → etcd → controllers → scheduler</div>
-          <div># kubelet → CRI/CNI/CSI → Linux → observability</div><br>
-          <div class="green">Learn the mechanism, not the command list →</div>
-        </div>
-      </div>
+      <div><div class="eyebrow">Interactive Kubernetes fundamentals → production mastery</div><h1>Stop memorizing.<br>Build the mental model.</h1><p class="hero-copy">Learn by changing the system, breaking it, reading the evidence and explaining why Kubernetes behaved that way.</p><div class="chip-row" style="margin-top:22px"><button class="primary-btn" data-lesson="${recommended?.id || 'why-kubernetes'}">${progress.completed.size ? 'Continue learning →' : 'Start the learning path →'}</button><button class="chip-btn" data-lesson="challenge-arena">⚔ Challenge Arena</button><button class="chip-btn" data-lesson="cluster-sandbox">🧪 Cluster Sandbox</button></div></div>
+      <div class="hero-card"><div class="terminal"><div class="cyan">LEVEL ${progress.current.level}</div><div class="green">${progress.current.name}</div><br><div>${progress.xp} XP earned</div><div>${progress.completed.size}/${readyCount()} labs completed</div><div>${progress.unlocked.length}/${allAchievements().length} achievements unlocked</div><br><div class="amber"># Next recommended</div><div>${recommended ? recommended.title : 'Curriculum complete 🏆'}</div></div></div>
     </section>
+    ${progressPanel(progress, recommended)}
     ${cards}
-    <div class="footer-note">Built as a growing open learning platform. Each lesson should explain the “why”, visualize the mechanism, and let you experiment.</div>
+    <div class="footer-note">Progress stays in your browser via localStorage. No account or backend is required.</div>
   `);
   bindGlobalNavigation();
 }
 
 async function lessonPage(id) {
   const lesson = findLesson(id);
-  if (!lesson || lesson.status !== 'ready' || !lessonLoaders[id]) {
-    location.hash = '#/';
-    return;
-  }
+  if (!lesson || lesson.status !== 'ready' || !lessonLoaders[id]) { location.hash = '#/'; return; }
+  const completed = completedLessons();
+  const gate = prereqState(id, completed);
+  const prereqText = gate.met ? 'Recommended prerequisites met' : `Suggested first: ${gate.missing.map(titleFor).join(', ')}`;
 
   app.innerHTML = shell(`
-    <div class="lesson-header">
-      <div class="breadcrumb"><a href="#/">Learning path</a> / ${lesson.section.title}</div>
-      <div class="eyebrow">${lesson.level} · ${lesson.minutes} min</div>
-      <h1>${lesson.title}</h1>
-      <p class="hero-copy">${lessonDescription(id)}</p>
-    </div>
+    <div class="lesson-header"><div class="breadcrumb"><a href="#/">Learning path</a> / ${lesson.section.title}</div><div class="lesson-meta"><span class="badge">${lesson.level}</span><span class="badge">${lesson.minutes} min</span><span class="badge">+100 XP</span></div><h1>${lesson.title}</h1><p class="hero-copy">${lessonDescription(id)}</p><div class="callout ${gate.met?'success':'warn'}"><strong>${prereqText}</strong><p>${gate.met?'You have the recommended context for this lab.':'Nothing is locked. You can continue here, or open the suggested lessons first.'}</p></div></div>
     <div id="lesson-root"><div class="panel">Loading interactive lab…</div></div>
+    <div id="lesson-reward"></div>
   `, id);
   bindGlobalNavigation();
 
@@ -181,15 +181,23 @@ async function lessonPage(id) {
   const root = document.querySelector('#lesson-root');
   module.mount(root, {
     markComplete: () => {
-      saveCompleted(id);
+      const fresh = markLessonComplete(id);
       const btn = document.querySelector('[data-mark-complete]');
-      if (btn) { btn.textContent = '✓ Lesson completed'; btn.disabled = true; }
-    }
+      if (btn) { btn.textContent = fresh ? '✓ Completed · +100 XP' : '✓ Lesson completed'; btn.disabled = true; }
+      const progress = progressSnapshot(readyCount());
+      const next = recommendedLesson(progress.completed, id);
+      const reward = document.querySelector('#lesson-reward');
+      if (reward) reward.innerHTML = `<div class="panel" style="margin-top:16px"><div class="eyebrow">${fresh?'XP earned':'Lesson reviewed'}</div><h2>${fresh?'+100 XP · ':''}${progress.current.name}</h2><p class="hero-copy">You now have ${progress.xp} XP and ${progress.completed.size}/${readyCount()} lessons completed.</p>${next?`<button class="primary-btn" data-lesson="${next.id}">Recommended next → ${next.title}</button>`:'<div class="callout success"><strong>Curriculum complete 🏆</strong><p>You have completed every live lesson.</p></div>'}</div>`;
+      bindGlobalNavigation();
+    },
+    awardXP: (key, amount) => awardChallenge(key, amount)
   });
 }
 
 function bindGlobalNavigation() {
-  document.querySelectorAll('[data-lesson]').forEach((el) => {
+  document.querySelectorAll('[data-lesson]').forEach(el => {
+    if (el.dataset.bound === '1') return;
+    el.dataset.bound = '1';
     el.addEventListener('click', () => {
       const lesson = findLesson(el.dataset.lesson);
       if (!lesson || lesson.status !== 'ready') return;
