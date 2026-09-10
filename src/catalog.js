@@ -4,9 +4,9 @@ export const curriculum = [
     title: '01 · Foundations',
     description: 'Build the mental model before touching YAML.',
     lessons: [
-      { id: 'why-kubernetes', title: 'Why Kubernetes?', status: 'planned', level: 'Beginner', minutes: 10 },
+      { id: 'why-kubernetes', title: 'Why Kubernetes?', status: 'ready', level: 'Beginner', minutes: 10 },
       { id: 'cluster-architecture', title: 'Cluster architecture', status: 'ready', level: 'Beginner', minutes: 15 },
-      { id: 'declarative-model', title: 'Declarative desired state', status: 'planned', level: 'Beginner', minutes: 12 }
+      { id: 'declarative-model', title: 'Declarative desired state', status: 'ready', level: 'Beginner', minutes: 12 }
     ]
   },
   {
@@ -16,7 +16,7 @@ export const curriculum = [
     lessons: [
       { id: 'pods', title: 'Pods & containers', status: 'ready', level: 'Beginner', minutes: 15 },
       { id: 'deployments', title: 'Deployments & ReplicaSets', status: 'ready', level: 'Beginner', minutes: 20 },
-      { id: 'pod-lifecycle', title: 'Pod lifecycle & probes', status: 'planned', level: 'Beginner', minutes: 20 }
+      { id: 'pod-lifecycle', title: 'Pod lifecycle & probes', status: 'ready', level: 'Beginner', minutes: 20 }
     ]
   },
   {
@@ -61,9 +61,12 @@ export const curriculum = [
 ];
 
 export const lessonLoaders = {
+  'why-kubernetes': () => import('./modules/why-kubernetes.js'),
   'cluster-architecture': () => import('./modules/cluster-architecture.js'),
+  'declarative-model': () => import('./modules/declarative-model.js'),
   'pods': () => import('./modules/pods.js'),
   'deployments': () => import('./modules/deployments.js'),
+  'pod-lifecycle': () => import('./modules/pod-lifecycle.js'),
   'cpu-scheduling': () => import('./modules/cpu-scheduling.js'),
   'memory': () => import('./modules/memory.js'),
   'services': () => import('./modules/services.js'),
