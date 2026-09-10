@@ -16,7 +16,7 @@ export function renderTracksPage({ tracks, completed, findLesson }) {
           <div class="eyebrow">${track.audience}</div><h2>${track.title}</h2><p style="color:var(--muted)">${track.description}</p>
           <div class="track-progress"><div class="node-row"><span>${done}/${lessons.length} complete</span><span>${percent}%</span></div><div class="bar req"><i style="width:${percent}%"></i></div></div>
           ${next ? `<button class="primary-btn" data-lesson="${next.id}" style="margin-top:14px">${done ? 'Continue' : 'Start'} → ${next.title}</button>` : '<div class="callout success"><strong>Track complete ✓</strong></div>'}
-          <ol>${lessons.map(lesson => `<li>${completed.has(lesson.id) ? '✓ ' : ''}<button class="link-button" data-lesson="${lesson.id}">${lesson.title}</button></li>`).join('')}</ol>
+          <ol>${lessons.map(lesson => `<li>${completed.has(lesson.id) ? '✓ ' : ''}<button class="track-lesson-link" data-lesson="${lesson.id}">${lesson.title}</button></li>`).join('')}</ol>
         </article>`;
       }).join('')}
     </div>`;
