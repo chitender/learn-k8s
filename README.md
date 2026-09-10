@@ -2,11 +2,11 @@
 
 **See it. Break it. Understand it.**
 
-An interactive, beginner-first learning platform for Kubernetes fundamentals and production internals. The goal is not another wall of documentation: every lesson should build a mental model, visualize what Kubernetes/Linux is doing, let the learner change inputs, and then test understanding.
+An interactive, beginner-first learning platform for Kubernetes fundamentals, production internals, and SRE-style troubleshooting. The goal is not another wall of documentation: every lesson should build a mental model, visualize what Kubernetes/Linux is doing, let the learner change inputs, and then test understanding.
 
 ## What is live
 
-The site currently contains **47 interactive lessons** across twelve sections.
+The site currently contains **49 interactive lessons** across thirteen sections.
 
 ```text
 01 Foundations
@@ -49,9 +49,26 @@ The site currently contains **47 interactive lessons** across twelve sections.
 12 Control Plane & Node Internals
    API server & etcd request lifecycle · Leases & leader election
    kubelet internals · CRI & container runtime
+
+13 Practice & Mastery
+   CKA / SRE challenge arena · Whole-cluster sandbox
 ```
 
 Helm is intentionally labeled as an ecosystem packaging tool rather than a Kubernetes core API primitive.
+
+## Guided learning & gamification
+
+The site remains fully static, but now includes a browser-local learning profile:
+
+- **100 XP per completed lesson**
+- one-time **bonus XP** for correctly solving challenge questions
+- six ranks from **Pod Explorer** to **Control Plane Sage**
+- achievements for foundations, scheduling, networking, storage, incident response and full completion
+- prerequisite-aware **recommended next lesson** guidance
+- no hard locks: experienced users can jump to any lesson
+- progress stored only in browser `localStorage`; no account or backend required
+
+The learning system intentionally rewards understanding rather than page views: challenge bonus XP can only be earned once per question.
 
 ## Learning philosophy
 
@@ -61,7 +78,9 @@ A strong lesson follows this sequence:
 Mental model → Visualization → Experiment → Break it → Inspect evidence → Challenge
 ```
 
-The site now spans scheduler/resource accounting, Linux cgroups, controller reconciliation, rollout and probe behavior, CNI/CSI/CRI boundaries, Service and EndpointSlice internals, RBAC/workload identity, Pod Security, admission, CRDs/operators, kubelet reconciliation, etcd-backed API state, Lease-based coordination, and production incident diagnosis.
+The site spans scheduler/resource accounting, Linux cgroups, controller reconciliation, rollout and probe behavior, CNI/CSI/CRI boundaries, Service and EndpointSlice internals, RBAC/workload identity, Pod Security, admission, CRDs/operators, kubelet reconciliation, etcd-backed API state, Lease-based coordination, and production incident diagnosis.
+
+The **Whole-cluster sandbox** deliberately combines multiple mechanisms so learners can see that one user symptom can cross scheduler, kubelet, CNI, cgroup, readiness and Service boundaries.
 
 ## Repository layout
 
@@ -70,8 +89,9 @@ learn-k8s/
 ├── index.html
 ├── styles.css
 ├── src/
-│   ├── app.js                  # shell, navigation and lesson routing
+│   ├── app.js                  # shell, routing, progress dashboard and recommendations
 │   ├── catalog.js              # curriculum + lesson manifest
+│   ├── gamification.js         # XP, ranks, achievements and prerequisite guidance
 │   └── modules/                # one interactive module per lesson
 └── .github/workflows/
     └── pages.yml               # GitHub Pages deployment
@@ -84,6 +104,7 @@ learn-k8s/
 3. Mark it `status: 'ready'` only when a working module exists.
 4. Add the dynamic loader in `lessonLoaders`.
 5. Add a concise learner-facing description in `src/app.js`.
+6. If the lesson has useful prerequisites, add them to `PREREQUISITES` in `src/gamification.js`.
 
 Avoid teaching syntax before explaining the mechanism. Prefer showing a failure mode over adding another paragraph.
 
