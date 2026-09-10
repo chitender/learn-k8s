@@ -1,63 +1,26 @@
 import { curriculum, lessonLoaders, findLesson } from './catalog.js';
-import { completedLessons, markLessonComplete, progressSnapshot, allAchievements, prereqState, awardChallenge } from './gamification.js';
+import {
+  completedLessons,
+  markLessonComplete,
+  progressSnapshot,
+  allAchievements,
+  prereqState,
+  awardChallenge,
+  exportProgress,
+  importProgress,
+  resetProgress
+} from './gamification.js';
+import { lessonDescription } from './data/lesson-descriptions.js';
+import {
+  bindSectionCollapsers,
+  bindMobileNav,
+  bindCurriculumFilters,
+  isSectionCollapsed,
+  showToast
+} from './ui/learning-ui.js';
 
 const app = document.querySelector('#app');
 const state = { currentLesson: null };
-
-function lessonDescription(id) {
-  const descriptions = {
-    'why-kubernetes': 'Start with the operational problems Kubernetes solves: failures, scaling, releases and service discovery — before learning the objects.',
-    'cluster-architecture': 'Follow a Pod create request through the API server, etcd, controllers, scheduler, kubelet and container runtime — then break components to see what stops.',
-    'declarative-model': 'Create drift between desired and actual state, then run a reconciliation loop and see why controllers are the heart of Kubernetes.',
-    'pods': 'Learn what a Pod really is, what containers inside it share, and why individual Pod IPs should be treated as replaceable.',
-    'deployments': 'Create drift on purpose, watch reconciliation restore desired state, and step through a rolling update between ReplicaSets.',
-    'pod-lifecycle': 'Break readiness, liveness and startup probes independently to see how traffic admission and container restarts are different decisions.',
-    'init-sidecars': 'Compare regular init containers with Kubernetes-native sidecars and see how startup ordering, readiness and Job completion differ.',
-    'probes-deep-dive': 'Tune startup budgets and failure thresholds, then see how readiness removes traffic while liveness restarts unhealthy containers.',
-    'rollout-strategies': 'Change maxSurge, maxUnavailable and readiness behavior to see why a Deployment rollout progresses, stalls or preserves availability.',
-    'cpu-scheduling': 'See exactly how kube-scheduler placement and Linux cgroup CPU enforcement differ — then reproduce throttling yourself.',
-    'memory': 'Compare memory requests with runtime limits and see why memory pressure can lead to OOM killing instead of CPU-style throttling.',
-    'affinity-taints': 'Build placement rules with labels, node affinity, taints and tolerations, then deliberately create an unschedulable Pod.',
-    'qos-eviction-ranking': 'Build BestEffort, Burstable and Guaranteed workloads and see how request usage and QoS influence node-pressure eviction risk.',
-    'priority-preemption': 'Create a resource conflict and see when a higher-priority Pod can trigger preemption of lower-priority Pods to make room.',
-    'topology-spread': 'Spread replicas across failure domains, change maxSkew, remove a zone and see when hard topology constraints leave Pods Pending.',
-    'scheduler-framework': 'Walk through Filter, Score, Reserve, Permit and Bind while toggling scheduler plugins to see how one placement decision is assembled.',
-    'pod-networking': 'Trace Pod-to-Pod traffic across same-Pod, same-node and cross-node paths while separating Kubernetes networking guarantees from CNI implementation details.',
-    'cni-deep-dive': 'Trace sandbox networking through CNI/IPAM and node dataplane setup, then break routing or policy to isolate cross-node failures.',
-    'services': 'Toggle backend readiness, send requests through a Service, resolve cross-namespace DNS names, and compare Service exposure types.',
-    'service-internals': 'Trace ClusterIP traffic through EndpointSlice state and compare how kube-proxy backends implement the same Service API.',
-    'dns-ingress': 'Follow a request from DNS to an Ingress controller, Service and Ready endpoint, and see why an Ingress object alone does not route traffic.',
-    'volumes': 'Experiment with emptyDir, ConfigMap and PVC-backed mounts to learn exactly which data survives a container restart or Pod replacement.',
-    'pv-pvc': 'Provision storage through a PVC, bind a PV, attach a Pod, and understand why persistent storage has a different lifecycle than Pods.',
-    'csi-deep-dive': 'Follow PVC provisioning through CSI controller and node operations, then distinguish provisioning, attach and mount failures.',
-    'kubectl-debug': 'Practice a repeatable symptom → evidence troubleshooting flow for Pending, CrashLoopBackOff, ImagePullBackOff and broken Services.',
-    'events-logs-metrics': 'Choose the fastest signal for a symptom and practice correlating Kubernetes events, container logs and metrics instead of guessing.',
-    'autoscaling': 'Simulate HPA replica math, VPA rightsizing and node autoscaling to see how requests connect workload demand to schedulable cluster capacity.',
-    'node-pressure-eviction': 'Push simulated memory or filesystem availability across kubelet eviction thresholds and see why node-pressure eviction is different from API eviction.',
-    'incident-simulator': 'Diagnose realistic latency, Pending, CNI, CSI and rollout incidents by collecting evidence before choosing the failing subsystem.',
-    'configmaps-secrets': 'Change configuration live and compare environment-variable vs projected-volume consumption while learning why base64 does not equal encryption.',
-    'namespaces-rbac': 'Ask “can this identity do this verb on this resource in this namespace?” and learn Role, ClusterRole and least-privilege thinking.',
-    'serviceaccounts-tokens': 'Give a Pod an API identity, expire a projected token, and separate authentication from the RBAC authorization decision.',
-    'quotas-limits': 'Submit Pods against a simulated LimitRange and ResourceQuota to separate admission policy from scheduler node placement.',
-    'jobs-cronjobs': 'Run finite work to completion, change parallelism, inject failures and experiment with CronJob concurrency policies.',
-    'statefulsets': 'Delete and recreate stable Pod ordinals, scale replicas and watch persistent identity stay attached to each StatefulSet member.',
-    'daemonsets': 'Add nodes and change eligibility rules to see why DaemonSets derive desired Pods from nodes instead of a replica count.',
-    'pdb-termination': 'Try voluntary evictions against a PDB and step through graceful Pod termination from serving traffic to clean exit.',
-    'networkpolicy': 'Start with open east-west traffic, introduce isolation, then add explicit allows and observe which application flows survive.',
-    'pod-security-admission': 'Change namespace Pod Security levels and enforcement modes, then test Pods that violate baseline or restricted expectations.',
-    'helm': 'Render a simplified chart from values and templates while keeping the boundary clear: Helm packages manifests; Kubernetes reconciles them.',
-    'production-capstone': 'Assemble a production-style workload from Deployments, Services, probes, resources, PDBs, NetworkPolicies, autoscaling and storage decisions.',
-    'admission-control': 'Send a Pod CREATE through mutation and validation, break an external webhook, and see how failurePolicy changes API behavior.',
-    'crds-operators': 'Install a custom API type, create drift and watch a custom controller reconcile desired state like a domain-specific Kubernetes operator.',
-    'apiserver-etcd': 'Trace API requests through authentication, authorization, admission and persistence while testing what happens when authoritative storage is unavailable.',
-    'leases-leader-election': 'Advance node heartbeat time and fail a simulated leader to understand why Lease objects are used for lightweight coordination.',
-    'kubelet-internals': 'Run a kubelet sync loop across volumes, sandbox networking, image pulls, runtime health and readiness to see where Pod startup can block.',
-    'cri-runtime': 'Follow kubelet gRPC calls through CRI RuntimeService and ImageService, then break the runtime endpoint, sandbox or image pull.',
-    'challenge-arena': 'Test your mental model with CKA-style fundamentals and SRE incident questions. Correct first-time solves earn bonus XP.',
-    'cluster-sandbox': 'Change scheduling, node health, CNI reachability, readiness and CPU demand in one connected cluster simulation.'
-  };
-  return descriptions[id] || 'Interactive Kubernetes lesson.';
-}
 
 function allLessons() {
   return curriculum.flatMap(section => section.lessons.map(lesson => ({ ...lesson, section })));
@@ -68,12 +31,15 @@ function readyLessons() {
 }
 
 function readyCount() { return readyLessons().length; }
-
 function titleFor(id) { return findLesson(id)?.title || id; }
 
+function escapeAttr(value = '') {
+  return String(value).replaceAll('&','&amp;').replaceAll('"','&quot;').replaceAll('<','&lt;').replaceAll('>','&gt;');
+}
+
 function recommendedLesson(completed, excludeId = null) {
-  const lessons = readyLessons().filter(l => l.id !== excludeId && !completed.has(l.id));
-  return lessons.find(l => prereqState(l.id, completed).met) || lessons[0] || null;
+  const lessons = readyLessons().filter(lesson => lesson.id !== excludeId && !completed.has(lesson.id));
+  return lessons.find(lesson => prereqState(lesson.id, completed).met) || lessons[0] || null;
 }
 
 function levelProgress(progress) {
@@ -83,31 +49,40 @@ function levelProgress(progress) {
 }
 
 function progressPanel(progress, recommended) {
-  const all = allAchievements();
-  const unlocked = new Set(progress.unlocked.map(a => a.id));
+  const achievements = allAchievements();
+  const unlocked = new Set(progress.unlocked.map(item => item.id));
   const nextText = progress.next ? `${progress.next.min - progress.xp} XP to ${progress.next.name}` : 'Highest rank reached';
   return `
     <section class="panel" style="margin-top:18px">
-      <div class="section-head" style="margin:0 0 16px"><div><div class="eyebrow">Your learning journey</div><h2>Level ${progress.current.level} · ${progress.current.name}</h2></div>${recommended ? `<button class="primary-btn" data-lesson="${recommended.id}">Continue → ${recommended.title}</button>` : '<span class="badge">Curriculum complete 🏆</span>'}</div>
+      <div class="section-head" style="margin:0 0 16px">
+        <div><div class="eyebrow">Your learning journey</div><h2>Level ${progress.current.level} · ${progress.current.name}</h2></div>
+        <div class="chip-row">
+          ${recommended ? `<button class="primary-btn" data-lesson="${recommended.id}">Continue → ${recommended.title}</button>` : '<span class="badge">Curriculum complete 🏆</span>'}
+          <button class="chip-btn" data-page="progress">View progress</button>
+        </div>
+      </div>
       <div class="grid-3">
         <div class="metric"><span>Total XP</span><strong>${progress.xp}</strong><p style="color:var(--muted);font-size:12px">${progress.lessonXP} lesson XP + ${progress.bonusXP} challenge XP</p></div>
         <div class="metric"><span>Lessons complete</span><strong>${progress.completed.size}/${readyCount()}</strong><p style="color:var(--muted);font-size:12px">${progress.percent}% of the live curriculum</p></div>
-        <div class="metric"><span>Achievements</span><strong>${progress.unlocked.length}/${all.length}</strong><p style="color:var(--muted);font-size:12px">${nextText}</p></div>
+        <div class="metric"><span>Achievements</span><strong>${progress.unlocked.length}/${achievements.length}</strong><p style="color:var(--muted);font-size:12px">${nextText}</p></div>
       </div>
       <div style="margin-top:14px"><div class="node-row"><span>Rank progress</span><span>${Math.round(levelProgress(progress))}%</span></div><div class="bar quota"><i style="width:${levelProgress(progress)}%"></i></div></div>
-      <div class="chip-row" style="margin-top:16px">${all.map(a => `<span class="badge" style="opacity:${unlocked.has(a.id)?1:.38}" title="${a.detail}">${a.icon} ${a.title}</span>`).join('')}</div>
-      <div class="callout" style="margin-top:16px"><strong>Prerequisites are guidance, not gates.</strong><p>The site recommends a sensible order, but every lab remains open. Experienced learners can jump directly to the subsystem they want.</p></div>
+      <div class="chip-row" style="margin-top:16px">${achievements.map(item => `<span class="badge" style="opacity:${unlocked.has(item.id)?1:.38}" title="${item.detail}">${item.icon} ${item.title}</span>`).join('')}</div>
     </section>`;
 }
 
-function shell(content, activeId = null) {
+function shell(content, activeId = null, activePage = null) {
   const completed = completedLessons();
   const progress = progressSnapshot(readyCount());
   return `
     <div class="shell">
       <header class="topbar">
-        <a class="brand" href="#/"><span class="brand-mark">⎈</span><span>Learn Kubernetes<small>See it. Break it. Understand it.</small></span></a>
+        <div class="chip-row" style="align-items:center">
+          <button class="ghost-btn mobile-nav-toggle" data-mobile-nav-toggle aria-label="Open curriculum" aria-expanded="false">☰</button>
+          <a class="brand" href="#/"><span class="brand-mark">⎈</span><span>Learn Kubernetes<small>See it. Break it. Understand it.</small></span></a>
+        </div>
         <div class="top-actions">
+          <button class="ghost-btn ${activePage === 'progress' ? 'active' : ''}" data-page="progress">Progress</button>
           <span class="badge hide-sm">L${progress.current.level} · ${progress.xp} XP</span>
           <span class="badge hide-sm">${progress.completed.size}/${readyCount()} complete</span>
           <a class="ghost-btn" href="https://github.com/chitender/learn-k8s" target="_blank" rel="noreferrer">GitHub ↗</a>
@@ -115,17 +90,41 @@ function shell(content, activeId = null) {
       </header>
       <div class="layout">
         <aside class="sidebar">
+          <div class="sidebar-tools">
+            <button class="ghost-btn" data-page="home">⌂ Learning home</button>
+            <button class="ghost-btn" data-page="progress">🏆 Progress & achievements</button>
+          </div>
           <div class="sidebar-label">Learning path</div>
-          ${curriculum.map(section => `
-            <div class="nav-section"><div class="nav-section-title">${section.title}</div>
-              ${section.lessons.map(lesson => {
-                const done = completed.has(lesson.id);
-                return `<button class="nav-link ${activeId===lesson.id?'active':''}" data-lesson="${lesson.id}"><span>${done?'✓ ':''}${lesson.title}</span>${done?'<span class="badge">+100</span>':'<i class="status-dot status-ready"></i>'}</button>`;
-              }).join('')}
-            </div>`).join('')}
+          ${curriculum.map(section => {
+            const collapsed = isSectionCollapsed(section.id);
+            const sectionDone = section.lessons.filter(lesson => completed.has(lesson.id)).length;
+            return `
+              <div class="nav-section ${collapsed?'collapsed':''}" data-nav-section="${section.id}">
+                <button class="nav-section-toggle" data-section-toggle="${section.id}" aria-expanded="${collapsed?'false':'true'}">
+                  <span>${section.title} <small style="color:var(--muted)">${sectionDone}/${section.lessons.length}</small></span><span class="chevron">⌄</span>
+                </button>
+                <div class="nav-lessons">
+                  ${section.lessons.map(lesson => {
+                    const done = completed.has(lesson.id);
+                    return `<button class="nav-link ${activeId===lesson.id?'active':''}" data-lesson="${lesson.id}"><span>${done?'✓ ':''}${lesson.title}</span>${done?'<span class="badge">+100</span>':'<i class="status-dot status-ready"></i>'}</button>`;
+                  }).join('')}
+                </div>
+              </div>`;
+          }).join('')}
         </aside>
+        <div class="sidebar-backdrop"></div>
         <main class="main"><div class="container">${content}</div></main>
       </div>
+    </div>`;
+}
+
+function curriculumControls() {
+  return `
+    <div class="curriculum-tools">
+      <div class="search-wrap"><input id="lesson-search" type="search" placeholder="Search CPU, CNI, RBAC, StatefulSet, etcd…" aria-label="Search lessons"></div>
+      <select id="lesson-level-filter" aria-label="Filter by level"><option>All</option><option>Beginner</option><option>Intermediate</option><option>Advanced</option></select>
+      <select id="lesson-status-filter" aria-label="Filter by completion"><option value="All">All progress</option><option value="incomplete">Not completed</option><option value="complete">Completed</option></select>
+      <div class="filter-summary"><span id="filter-summary-text">${readyCount()} lessons shown</span><span>Search by concept, subsystem, or lesson title</span></div>
     </div>`;
 }
 
@@ -134,14 +133,15 @@ function home() {
   const progress = progressSnapshot(readyCount());
   const recommended = recommendedLesson(completed);
   const cards = curriculum.map(section => `
-    <section>
+    <section class="curriculum-section" data-curriculum-section="${section.id}">
       <div class="section-head"><div><div class="eyebrow">${section.title}</div><h2>${section.description}</h2></div></div>
       <div class="curriculum-grid">
         ${section.lessons.map(lesson => {
           const gate = prereqState(lesson.id, completed);
           const done = completed.has(lesson.id);
           const missing = gate.missing.slice(0,2).map(titleFor).join(', ');
-          return `<button class="lesson-card" data-lesson="${lesson.id}">
+          const search = escapeAttr(`${lesson.title} ${lessonDescription(lesson.id)} ${section.title} ${section.description} ${lesson.level}`.toLowerCase());
+          return `<button class="lesson-card" data-lesson="${lesson.id}" data-searchable-lesson data-search="${search}" data-level="${lesson.level}" data-completion="${done?'complete':'incomplete'}">
             <div class="card-top"><span class="badge">${lesson.level}</span><span class="badge">${done?'✓ Complete':`${lesson.minutes} min · +100 XP`}</span></div>
             <h3>${lesson.title}</h3><p>${lessonDescription(lesson.id)}</p>
             <div class="go">${done?'Review lesson ↻':gate.met?'Start interactive lesson →':`Suggested first: ${missing}${gate.missing.length>2?'…':''}`}</div>
@@ -152,14 +152,115 @@ function home() {
 
   app.innerHTML = shell(`
     <section class="hero">
-      <div><div class="eyebrow">Interactive Kubernetes fundamentals → production mastery</div><h1>Stop memorizing.<br>Build the mental model.</h1><p class="hero-copy">Learn by changing the system, breaking it, reading the evidence and explaining why Kubernetes behaved that way.</p><div class="chip-row" style="margin-top:22px"><button class="primary-btn" data-lesson="${recommended?.id || 'why-kubernetes'}">${progress.completed.size ? 'Continue learning →' : 'Start the learning path →'}</button><button class="chip-btn" data-lesson="challenge-arena">⚔ Challenge Arena</button><button class="chip-btn" data-lesson="cluster-sandbox">🧪 Cluster Sandbox</button></div></div>
+      <div>
+        <div class="eyebrow">Interactive Kubernetes fundamentals → production mastery</div>
+        <h1>Stop memorizing.<br>Build the mental model.</h1>
+        <p class="hero-copy">Learn by changing the system, breaking it, reading the evidence and explaining why Kubernetes behaved that way.</p>
+        <div class="chip-row" style="margin-top:22px">
+          <button class="primary-btn" data-lesson="${recommended?.id || 'why-kubernetes'}">${progress.completed.size ? 'Continue learning →' : 'Start the learning path →'}</button>
+          <button class="chip-btn" data-lesson="challenge-arena">⚔ Challenge Arena</button>
+          <button class="chip-btn" data-lesson="cluster-sandbox">🧪 Cluster Sandbox</button>
+        </div>
+      </div>
       <div class="hero-card"><div class="terminal"><div class="cyan">LEVEL ${progress.current.level}</div><div class="green">${progress.current.name}</div><br><div>${progress.xp} XP earned</div><div>${progress.completed.size}/${readyCount()} labs completed</div><div>${progress.unlocked.length}/${allAchievements().length} achievements unlocked</div><br><div class="amber"># Next recommended</div><div>${recommended ? recommended.title : 'Curriculum complete 🏆'}</div></div></div>
     </section>
     ${progressPanel(progress, recommended)}
+    ${curriculumControls()}
+    <div id="filter-empty" class="panel filter-empty"><div class="eyebrow">No match</div><h2>Try a broader search</h2><p class="hero-copy">Search by terms such as scheduler, network, storage, runtime, security, CPU, probes, or etcd.</p></div>
     ${cards}
     <div class="footer-note">Progress stays in your browser via localStorage. No account or backend is required.</div>
   `);
   bindGlobalNavigation();
+  bindCurriculumFilters(document);
+}
+
+function sectionProgressRows(completed) {
+  return curriculum.map(section => {
+    const done = section.lessons.filter(lesson => completed.has(lesson.id)).length;
+    const percent = Math.round((done / section.lessons.length) * 100);
+    return `<div class="section-progress-row"><strong>${section.title}</strong><div class="bar req"><i style="width:${percent}%"></i></div><span class="badge">${done}/${section.lessons.length}</span></div>`;
+  }).join('');
+}
+
+function progressPage() {
+  const progress = progressSnapshot(readyCount());
+  const achievements = allAchievements();
+  const unlocked = new Set(progress.unlocked.map(item => item.id));
+  const recommended = recommendedLesson(progress.completed);
+  const exported = exportProgress();
+
+  app.innerHTML = shell(`
+    <div class="lesson-header"><div class="eyebrow">Learner profile</div><h1>Progress & achievements</h1><p class="hero-copy">Your learning state stays on this device. Back it up, move it to another browser, or reset it whenever you want.</p></div>
+    <div class="progress-hero">
+      <div class="panel">
+        <div class="eyebrow">Current rank</div><h2>Level ${progress.current.level} · ${progress.current.name}</h2>
+        <div class="grid-3" style="margin-top:16px"><div class="metric"><span>XP</span><strong>${progress.xp}</strong></div><div class="metric"><span>Lessons</span><strong>${progress.completed.size}/${readyCount()}</strong></div><div class="metric"><span>Complete</span><strong>${progress.percent}%</strong></div></div>
+        <div style="margin-top:16px"><div class="node-row"><span>Rank progress</span><span>${Math.round(levelProgress(progress))}%</span></div><div class="bar quota"><i style="width:${levelProgress(progress)}%"></i></div></div>
+        ${recommended ? `<button class="primary-btn" data-lesson="${recommended.id}" style="margin-top:18px">Continue → ${recommended.title}</button>` : '<div class="callout success"><strong>Curriculum complete 🏆</strong><p>You have completed every live lesson.</p></div>'}
+      </div>
+      <div class="panel"><div class="eyebrow">XP breakdown</div><div class="metric" style="margin-top:12px"><span>Lesson XP</span><strong>${progress.lessonXP}</strong></div><div class="metric" style="margin-top:10px"><span>Challenge bonus XP</span><strong>${progress.bonusXP}</strong></div><div class="callout"><strong>Progress is portable</strong><p>Use the backup below to move your progress between browsers or devices without creating an account.</p></div></div>
+    </div>
+
+    <section style="margin-top:28px"><div class="section-head"><div><div class="eyebrow">Achievements</div><h2>${progress.unlocked.length}/${achievements.length} unlocked</h2></div></div><div class="achievement-grid">${achievements.map(item => `<div class="achievement-card ${unlocked.has(item.id)?'':'locked'}"><div class="achievement-icon">${item.icon}</div><strong>${item.title}</strong><p style="color:var(--muted);font-size:12px">${item.detail}</p><span class="badge">${unlocked.has(item.id)?'Unlocked':'Locked'}</span></div>`).join('')}</div></section>
+
+    <section class="panel" style="margin-top:28px"><div class="eyebrow">Curriculum coverage</div><h2>Progress by section</h2><div class="section-progress-list" style="margin-top:18px">${sectionProgressRows(progress.completed)}</div></section>
+
+    <section style="margin-top:28px"><div class="section-head"><div><div class="eyebrow">Backup & restore</div><h2>Own your learning state</h2></div></div><div class="progress-io">
+      <div class="panel"><h3>Export</h3><p style="color:var(--muted)">Copy or download this versioned JSON backup.</p><textarea id="progress-export" readonly>${exported}</textarea><div class="chip-row" style="margin-top:12px"><button class="primary-btn" id="copy-progress">Copy JSON</button><button class="chip-btn" id="download-progress">Download backup</button></div></div>
+      <div class="panel"><h3>Import</h3><p style="color:var(--muted)">Paste a Learn Kubernetes progress backup. Unknown lesson IDs are ignored.</p><textarea id="progress-import" placeholder="Paste learn-k8s-progress JSON here…"></textarea><div class="chip-row" style="margin-top:12px"><button class="primary-btn" id="import-progress">Import progress</button><button class="danger-btn" id="reset-progress">Reset all progress</button></div></div>
+    </div></section>
+  `, null, 'progress');
+  bindGlobalNavigation();
+  bindProgressActions(exported);
+}
+
+function bindProgressActions(exported) {
+  const copy = document.querySelector('#copy-progress');
+  const download = document.querySelector('#download-progress');
+  const importButton = document.querySelector('#import-progress');
+  const resetButton = document.querySelector('#reset-progress');
+
+  copy?.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(exported);
+      showToast('Progress JSON copied.');
+    } catch {
+      const box = document.querySelector('#progress-export');
+      box?.focus(); box?.select();
+      showToast('Select and copy the highlighted JSON.');
+    }
+  });
+
+  download?.addEventListener('click', () => {
+    const blob = new Blob([exported], { type:'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'learn-k8s-progress.json';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    showToast('Progress backup downloaded.');
+  });
+
+  importButton?.addEventListener('click', () => {
+    const raw = document.querySelector('#progress-import')?.value || '';
+    try {
+      const result = importProgress(raw, readyLessons().map(lesson => lesson.id));
+      showToast(`Imported ${result.completed} completed lessons.`);
+      progressPage();
+    } catch (error) {
+      showToast(error.message || 'Could not import progress.');
+    }
+  });
+
+  resetButton?.addEventListener('click', () => {
+    if (!window.confirm('Reset all Learn Kubernetes lesson and challenge progress on this browser?')) return;
+    resetProgress();
+    showToast('Learning progress reset.');
+    progressPage();
+  });
 }
 
 async function lessonPage(id) {
@@ -182,8 +283,8 @@ async function lessonPage(id) {
   module.mount(root, {
     markComplete: () => {
       const fresh = markLessonComplete(id);
-      const btn = document.querySelector('[data-mark-complete]');
-      if (btn) { btn.textContent = fresh ? '✓ Completed · +100 XP' : '✓ Lesson completed'; btn.disabled = true; }
+      const button = document.querySelector('[data-mark-complete]');
+      if (button) { button.textContent = fresh ? '✓ Completed · +100 XP' : '✓ Lesson completed'; button.disabled = true; }
       const progress = progressSnapshot(readyCount());
       const next = recommendedLesson(progress.completed, id);
       const reward = document.querySelector('#lesson-reward');
@@ -195,20 +296,32 @@ async function lessonPage(id) {
 }
 
 function bindGlobalNavigation() {
-  document.querySelectorAll('[data-lesson]').forEach(el => {
-    if (el.dataset.bound === '1') return;
-    el.dataset.bound = '1';
-    el.addEventListener('click', () => {
-      const lesson = findLesson(el.dataset.lesson);
+  document.querySelectorAll('[data-lesson]').forEach(element => {
+    if (element.dataset.bound === '1') return;
+    element.dataset.bound = '1';
+    element.addEventListener('click', () => {
+      const lesson = findLesson(element.dataset.lesson);
       if (!lesson || lesson.status !== 'ready') return;
       location.hash = `#/learn/${lesson.id}`;
     });
   });
+
+  document.querySelectorAll('[data-page]').forEach(element => {
+    if (element.dataset.pageBound === '1') return;
+    element.dataset.pageBound = '1';
+    element.addEventListener('click', () => {
+      location.hash = element.dataset.page === 'progress' ? '#/progress' : '#/';
+    });
+  });
+
+  bindSectionCollapsers(document);
+  bindMobileNav(document);
 }
 
 function route() {
   if (state.currentLesson?.unmount) state.currentLesson.unmount();
   state.currentLesson = null;
+  if (location.hash === '#/progress') { progressPage(); return; }
   const match = location.hash.match(/^#\/learn\/([a-z0-9-]+)$/);
   if (match) lessonPage(match[1]); else home();
 }

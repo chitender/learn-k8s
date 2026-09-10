@@ -56,19 +56,28 @@ The site currently contains **49 interactive lessons** across thirteen sections.
 
 Helm is intentionally labeled as an ecosystem packaging tool rather than a Kubernetes core API primitive.
 
-## Guided learning & gamification
+## Learning experience
 
-The site remains fully static, but now includes a browser-local learning profile:
+The site stays fully static while behaving more like a learning product:
 
-- **100 XP per completed lesson**
-- one-time **bonus XP** for correctly solving challenge questions
+- **100 XP per completed lesson** and one-time challenge bonus XP
 - six ranks from **Pod Explorer** to **Control Plane Sage**
-- achievements for foundations, scheduling, networking, storage, incident response and full completion
-- prerequisite-aware **recommended next lesson** guidance
-- no hard locks: experienced users can jump to any lesson
-- progress stored only in browser `localStorage`; no account or backend required
+- achievement badges and section-by-section progress
+- prerequisite-aware **recommended next lesson** guidance without hard locks
+- curriculum **search**, difficulty filtering, and completed/incomplete filtering
+- **collapsible sidebar sections** and a mobile navigation drawer
+- a dedicated **Progress & Achievements** page
+- versioned JSON **export/import** so learners can move progress between browsers or devices
+- one-click reset limited to Learn Kubernetes progress keys
+- no account or backend required; learning state stays in browser `localStorage`
 
-The learning system intentionally rewards understanding rather than page views: challenge bonus XP can only be earned once per question.
+The learning system rewards understanding rather than page views: challenge bonus XP can only be earned once per question.
+
+## Practice modes
+
+The **CKA / SRE Challenge Arena** is data-driven. Questions live in `src/data/challenges.js`, making the pool easy to expand without rewriting UI logic. Learners can filter by track, Kubernetes domain, and difficulty.
+
+The **Whole-cluster sandbox** deliberately combines scheduler, kubelet, CNI, cgroup, readiness, endpoint and Service behavior so a single symptom can cross subsystem boundaries.
 
 ## Learning philosophy
 
@@ -80,18 +89,22 @@ Mental model → Visualization → Experiment → Break it → Inspect evidence 
 
 The site spans scheduler/resource accounting, Linux cgroups, controller reconciliation, rollout and probe behavior, CNI/CSI/CRI boundaries, Service and EndpointSlice internals, RBAC/workload identity, Pod Security, admission, CRDs/operators, kubelet reconciliation, etcd-backed API state, Lease-based coordination, and production incident diagnosis.
 
-The **Whole-cluster sandbox** deliberately combines multiple mechanisms so learners can see that one user symptom can cross scheduler, kubelet, CNI, cgroup, readiness and Service boundaries.
-
 ## Repository layout
 
 ```text
 learn-k8s/
 ├── index.html
 ├── styles.css
+├── styles-experience.css       # search, progress and responsive/mobile UI
 ├── src/
-│   ├── app.js                  # shell, routing, progress dashboard and recommendations
-│   ├── catalog.js              # curriculum + lesson manifest
-│   ├── gamification.js         # XP, ranks, achievements and prerequisite guidance
+│   ├── app.js                  # shell, routing and page composition
+│   ├── catalog.js              # curriculum + lesson loader manifest
+│   ├── gamification.js         # XP, ranks, progress portability and prerequisites
+│   ├── data/
+│   │   ├── challenges.js       # challenge question definitions
+│   │   └── lesson-descriptions.js
+│   ├── ui/
+│   │   └── learning-ui.js      # search, sidebar/mobile behavior and toasts
 │   └── modules/                # one interactive module per lesson
 └── .github/workflows/
     └── pages.yml               # GitHub Pages deployment
@@ -103,10 +116,14 @@ learn-k8s/
 2. Add the lesson to the appropriate section in `src/catalog.js`.
 3. Mark it `status: 'ready'` only when a working module exists.
 4. Add the dynamic loader in `lessonLoaders`.
-5. Add a concise learner-facing description in `src/app.js`.
+5. Add learner-facing text to `src/data/lesson-descriptions.js`.
 6. If the lesson has useful prerequisites, add them to `PREREQUISITES` in `src/gamification.js`.
 
 Avoid teaching syntax before explaining the mechanism. Prefer showing a failure mode over adding another paragraph.
+
+## Add a challenge
+
+Add a challenge object to `src/data/challenges.js`. The Arena automatically picks up its track, domain, difficulty, choices, answer and explanation.
 
 ## Run locally
 

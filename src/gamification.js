@@ -20,35 +20,53 @@ const ACHIEVEMENTS = [
   { id: 'mastery', icon: '🏆', title: 'Cluster Mastery', detail: 'Complete every live lesson.', test: ({ completed, total }) => total > 0 && completed.size >= total }
 ];
 
+const STORAGE_KEYS = {
+  completed: 'learn-k8s-completed',
+  solved: 'learn-k8s-challenges-solved',
+  challengeXP: 'learn-k8s-challenge-xp',
+  collapsedSections: 'learn-k8s-collapsed-sections'
+};
+
 function readSet(key) {
   try { return new Set(JSON.parse(localStorage.getItem(key) || '[]')); }
   catch { return new Set(); }
 }
 
+function safeStringArray(value) {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value.filter(item => typeof item === 'string' && item.length < 120))];
+}
+
 export function completedLessons() {
-  return readSet('learn-k8s-completed');
+  return readSet(STORAGE_KEYS.completed);
+}
+
+export function solvedChallenges() {
+  return readSet(STORAGE_KEYS.solved);
 }
 
 export function markLessonComplete(id) {
   const set = completedLessons();
   const isNew = !set.has(id);
   set.add(id);
-  localStorage.setItem('learn-k8s-completed', JSON.stringify([...set]));
+  localStorage.setItem(STORAGE_KEYS.completed, JSON.stringify([...set]));
   return isNew;
 }
 
 export function challengeXP() {
-  return Number(localStorage.getItem('learn-k8s-challenge-xp') || 0);
+  const value = Number(localStorage.getItem(STORAGE_KEYS.challengeXP) || 0);
+  return Number.isFinite(value) && value >= 0 ? value : 0;
 }
 
 export function awardChallenge(id, amount = 25) {
-  const solved = readSet('learn-k8s-challenges-solved');
+  const solved = solvedChallenges();
   if (solved.has(id)) return { awarded: 0, total: challengeXP() };
   solved.add(id);
-  localStorage.setItem('learn-k8s-challenges-solved', JSON.stringify([...solved]));
-  const total = challengeXP() + Math.max(0, Number(amount) || 0);
-  localStorage.setItem('learn-k8s-challenge-xp', String(total));
-  return { awarded: amount, total };
+  localStorage.setItem(STORAGE_KEYS.solved, JSON.stringify([...solved]));
+  const award = Math.max(0, Number(amount) || 0);
+  const total = challengeXP() + award;
+  localStorage.setItem(STORAGE_KEYS.challengeXP, String(total));
+  return { awarded: award, total };
 }
 
 export function progressSnapshot(total) {
@@ -73,6 +91,40 @@ export function progressSnapshot(total) {
 
 export function allAchievements() {
   return ACHIEVEMENTS;
+}
+
+export function exportProgress() {
+  return JSON.stringify({
+    schema: 'learn-k8s-progress',
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    completed: [...completedLessons()],
+    solvedChallenges: [...solvedChallenges()],
+    challengeXP: challengeXP()
+  }, null, 2);
+}
+
+export function importProgress(raw, validLessonIds = null) {
+  let parsed;
+  try { parsed = typeof raw === 'string' ? JSON.parse(raw) : raw; }
+  catch { throw new Error('That does not look like valid Learn Kubernetes progress JSON.'); }
+  if (!parsed || parsed.schema !== 'learn-k8s-progress' || parsed.version !== 1) {
+    throw new Error('Unsupported progress file. Expected learn-k8s-progress version 1.');
+  }
+  const allowed = validLessonIds ? new Set(validLessonIds) : null;
+  const completed = safeStringArray(parsed.completed).filter(id => !allowed || allowed.has(id));
+  const solved = safeStringArray(parsed.solvedChallenges);
+  const bonus = Math.max(0, Number(parsed.challengeXP) || 0);
+  localStorage.setItem(STORAGE_KEYS.completed, JSON.stringify(completed));
+  localStorage.setItem(STORAGE_KEYS.solved, JSON.stringify(solved));
+  localStorage.setItem(STORAGE_KEYS.challengeXP, String(bonus));
+  return { completed: completed.length, solved: solved.length, challengeXP: bonus };
+}
+
+export function resetProgress() {
+  localStorage.removeItem(STORAGE_KEYS.completed);
+  localStorage.removeItem(STORAGE_KEYS.solved);
+  localStorage.removeItem(STORAGE_KEYS.challengeXP);
 }
 
 export const PREREQUISITES = {
