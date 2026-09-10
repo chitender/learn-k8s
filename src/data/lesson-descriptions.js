@@ -2,6 +2,8 @@ export const LESSON_DESCRIPTIONS = {
   'why-kubernetes': 'Start with the operational problems Kubernetes solves: failures, scaling, releases and service discovery — before learning the objects.',
   'cluster-architecture': 'Follow a Pod create request through the API server, etcd, controllers, scheduler, kubelet and container runtime — then break components to see what stops.',
   'declarative-model': 'Create drift between desired and actual state, then run a reconciliation loop and see why controllers are the heart of Kubernetes.',
+  'object-anatomy': 'Dissect apiVersion, kind, metadata, spec and status, then use API discovery and kubectl explain instead of memorizing YAML.',
+  'labels-selectors': 'Attach labels, write equality and set-based selectors, and watch Service membership change as Kubernetes groups objects dynamically.',
   'pods': 'Learn what a Pod really is, what containers inside it share, and why individual Pod IPs should be treated as replaceable.',
   'deployments': 'Create drift on purpose, watch reconciliation restore desired state, and step through a rolling update between ReplicaSets.',
   'pod-lifecycle': 'Break readiness, liveness and startup probes independently to see how traffic admission and container restarts are different decisions.',
