@@ -57,6 +57,44 @@ export const curriculum = [
       { id: 'events-logs-metrics', title: 'Events, logs & metrics', status: 'ready', level: 'Beginner', minutes: 25 },
       { id: 'autoscaling', title: 'HPA, VPA & Cluster Autoscaler', status: 'ready', level: 'Intermediate', minutes: 30 }
     ]
+  },
+  {
+    id: 'configuration-access',
+    title: '07 · Configuration & Access',
+    description: 'Inject configuration safely, isolate teams, and control API access and namespace budgets.',
+    lessons: [
+      { id: 'configmaps-secrets', title: 'ConfigMaps & Secrets', status: 'ready', level: 'Beginner', minutes: 20 },
+      { id: 'namespaces-rbac', title: 'Namespaces & RBAC', status: 'ready', level: 'Beginner → Intermediate', minutes: 25 },
+      { id: 'quotas-limits', title: 'ResourceQuota & LimitRange', status: 'ready', level: 'Intermediate', minutes: 20 }
+    ]
+  },
+  {
+    id: 'workload-patterns',
+    title: '08 · Workload Patterns',
+    description: 'Choose the right controller for finite work, stateful systems, and node-local agents.',
+    lessons: [
+      { id: 'jobs-cronjobs', title: 'Jobs & CronJobs', status: 'ready', level: 'Beginner', minutes: 20 },
+      { id: 'statefulsets', title: 'StatefulSets', status: 'ready', level: 'Intermediate', minutes: 25 },
+      { id: 'daemonsets', title: 'DaemonSets', status: 'ready', level: 'Beginner → Intermediate', minutes: 20 }
+    ]
+  },
+  {
+    id: 'reliability-security',
+    title: '09 · Reliability & Security',
+    description: 'Protect availability during change and restrict east-west traffic intentionally.',
+    lessons: [
+      { id: 'pdb-termination', title: 'PDBs & graceful termination', status: 'ready', level: 'Intermediate', minutes: 25 },
+      { id: 'networkpolicy', title: 'NetworkPolicy', status: 'ready', level: 'Intermediate', minutes: 25 }
+    ]
+  },
+  {
+    id: 'packaging-capstone',
+    title: '10 · Packaging & Capstone',
+    description: 'Understand packaging, then assemble the fundamentals into a production-style workload.',
+    lessons: [
+      { id: 'helm', title: 'Helm chart mental model', status: 'ready', level: 'Beginner → Intermediate', minutes: 20 },
+      { id: 'production-capstone', title: 'Production app capstone', status: 'ready', level: 'Intermediate', minutes: 35 }
+    ]
   }
 ];
 
@@ -77,7 +115,17 @@ export const lessonLoaders = {
   'pv-pvc': () => import('./modules/pv-pvc.js'),
   'kubectl-debug': () => import('./modules/kubectl-debug.js'),
   'events-logs-metrics': () => import('./modules/events-logs-metrics.js'),
-  'autoscaling': () => import('./modules/autoscaling.js')
+  'autoscaling': () => import('./modules/autoscaling.js'),
+  'configmaps-secrets': () => import('./modules/configmaps-secrets.js'),
+  'namespaces-rbac': () => import('./modules/namespaces-rbac.js'),
+  'quotas-limits': () => import('./modules/quotas-limits.js'),
+  'jobs-cronjobs': () => import('./modules/jobs-cronjobs.js'),
+  'statefulsets': () => import('./modules/statefulsets.js'),
+  'daemonsets': () => import('./modules/daemonsets.js'),
+  'pdb-termination': () => import('./modules/pdb-termination.js'),
+  'networkpolicy': () => import('./modules/networkpolicy.js'),
+  'helm': () => import('./modules/helm.js'),
+  'production-capstone': () => import('./modules/production-capstone.js')
 };
 
 export function findLesson(id) {
