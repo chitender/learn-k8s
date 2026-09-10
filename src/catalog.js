@@ -26,7 +26,7 @@ export const curriculum = [
     lessons: [
       { id: 'cpu-scheduling', title: 'CPU scheduling & throttling', status: 'ready', level: 'Beginner → Intermediate', minutes: 30 },
       { id: 'memory', title: 'Memory requests, limits & OOM', status: 'ready', level: 'Beginner', minutes: 25 },
-      { id: 'affinity-taints', title: 'Affinity, taints & tolerations', status: 'planned', level: 'Intermediate', minutes: 25 }
+      { id: 'affinity-taints', title: 'Affinity, taints & tolerations', status: 'ready', level: 'Intermediate', minutes: 25 }
     ]
   },
   {
@@ -34,9 +34,9 @@ export const curriculum = [
     title: '04 · Networking',
     description: 'Traffic flow from Pod IP to Service to Ingress.',
     lessons: [
-      { id: 'pod-networking', title: 'Pod networking', status: 'planned', level: 'Beginner', minutes: 20 },
+      { id: 'pod-networking', title: 'Pod networking', status: 'ready', level: 'Beginner', minutes: 20 },
       { id: 'services', title: 'Services & kube-proxy', status: 'ready', level: 'Beginner', minutes: 25 },
-      { id: 'dns-ingress', title: 'DNS & Ingress', status: 'planned', level: 'Intermediate', minutes: 25 }
+      { id: 'dns-ingress', title: 'DNS & Ingress', status: 'ready', level: 'Intermediate', minutes: 25 }
     ]
   },
   {
@@ -44,7 +44,7 @@ export const curriculum = [
     title: '05 · Storage',
     description: 'Volumes, PVs, PVCs and StorageClasses.',
     lessons: [
-      { id: 'volumes', title: 'Volumes & persistence', status: 'planned', level: 'Beginner', minutes: 20 },
+      { id: 'volumes', title: 'Volumes & persistence', status: 'ready', level: 'Beginner', minutes: 20 },
       { id: 'pv-pvc', title: 'PV, PVC & StorageClass', status: 'ready', level: 'Beginner', minutes: 25 }
     ]
   },
@@ -54,8 +54,8 @@ export const curriculum = [
     description: 'Troubleshooting, observability and safe production habits.',
     lessons: [
       { id: 'kubectl-debug', title: 'kubectl troubleshooting', status: 'ready', level: 'Beginner', minutes: 25 },
-      { id: 'events-logs-metrics', title: 'Events, logs & metrics', status: 'planned', level: 'Beginner', minutes: 25 },
-      { id: 'autoscaling', title: 'HPA, VPA & Cluster Autoscaler', status: 'planned', level: 'Intermediate', minutes: 30 }
+      { id: 'events-logs-metrics', title: 'Events, logs & metrics', status: 'ready', level: 'Beginner', minutes: 25 },
+      { id: 'autoscaling', title: 'HPA, VPA & Cluster Autoscaler', status: 'ready', level: 'Intermediate', minutes: 30 }
     ]
   }
 ];
@@ -69,9 +69,15 @@ export const lessonLoaders = {
   'pod-lifecycle': () => import('./modules/pod-lifecycle.js'),
   'cpu-scheduling': () => import('./modules/cpu-scheduling.js'),
   'memory': () => import('./modules/memory.js'),
+  'affinity-taints': () => import('./modules/affinity-taints.js'),
+  'pod-networking': () => import('./modules/pod-networking.js'),
   'services': () => import('./modules/services.js'),
+  'dns-ingress': () => import('./modules/dns-ingress.js'),
+  'volumes': () => import('./modules/volumes.js'),
   'pv-pvc': () => import('./modules/pv-pvc.js'),
-  'kubectl-debug': () => import('./modules/kubectl-debug.js')
+  'kubectl-debug': () => import('./modules/kubectl-debug.js'),
+  'events-logs-metrics': () => import('./modules/events-logs-metrics.js'),
+  'autoscaling': () => import('./modules/autoscaling.js')
 };
 
 export function findLesson(id) {

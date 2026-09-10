@@ -13,9 +13,15 @@ function lessonDescription(id) {
     'pod-lifecycle': 'Break readiness, liveness and startup probes independently to see how traffic admission and container restarts are different decisions.',
     'cpu-scheduling': 'See exactly how kube-scheduler placement and Linux cgroup CPU enforcement differ — then reproduce throttling yourself.',
     'memory': 'Compare memory requests with runtime limits and see why memory pressure can lead to OOM killing instead of CPU-style throttling.',
+    'affinity-taints': 'Build placement rules with labels, node affinity, taints and tolerations, then deliberately create an unschedulable Pod.',
+    'pod-networking': 'Trace Pod-to-Pod traffic across same-Pod, same-node and cross-node paths while separating Kubernetes networking guarantees from CNI implementation details.',
     'services': 'Toggle backend readiness, send requests through a Service, resolve cross-namespace DNS names, and compare Service exposure types.',
+    'dns-ingress': 'Follow a request from DNS to an Ingress controller, Service and Ready endpoint, and see why an Ingress object alone does not route traffic.',
+    'volumes': 'Experiment with emptyDir, ConfigMap and PVC-backed mounts to learn exactly which data survives a container restart or Pod replacement.',
     'pv-pvc': 'Provision storage through a PVC, bind a PV, attach a Pod, and understand why persistent storage has a different lifecycle than Pods.',
-    'kubectl-debug': 'Practice a repeatable symptom → evidence troubleshooting flow for Pending, CrashLoopBackOff, ImagePullBackOff and broken Services.'
+    'kubectl-debug': 'Practice a repeatable symptom → evidence troubleshooting flow for Pending, CrashLoopBackOff, ImagePullBackOff and broken Services.',
+    'events-logs-metrics': 'Choose the fastest signal for a symptom and practice correlating Kubernetes events, container logs and metrics instead of guessing.',
+    'autoscaling': 'Simulate HPA replica math, VPA rightsizing and node autoscaling to see how requests connect workload demand to schedulable cluster capacity.'
   };
   return descriptions[id] || 'Interactive lesson coming soon.';
 }
