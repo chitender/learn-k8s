@@ -6,7 +6,7 @@ An interactive, beginner-first learning platform for Kubernetes fundamentals and
 
 ## What is live
 
-The site currently contains **36 interactive lessons** across eleven sections.
+The site currently contains **47 interactive lessons** across twelve sections.
 
 ```text
 01 Foundations
@@ -14,19 +14,22 @@ The site currently contains **36 interactive lessons** across eleven sections.
 
 02 Workloads
    Pods & containers · Deployments & ReplicaSets · Pod lifecycle & probes
+   Init containers & native sidecars · Probes deep dive · Rolling updates deep dive
 
 03 Scheduling & Resources
    CPU scheduling & throttling · Memory & OOM · Affinity/taints
-   Priority & preemption · Topology spread · Scheduler framework
+   QoS classes & eviction ranking · Priority & preemption · Topology spread · Scheduler framework
 
 04 Networking
-   Pod networking · Services & kube-proxy · Service internals & EndpointSlices · DNS & Ingress
+   Pod networking · CNI deep dive · Services & kube-proxy
+   Service internals & EndpointSlices · DNS & Ingress
 
 05 Storage
-   Volumes & persistence · PV/PVC/StorageClass
+   Volumes & persistence · PV/PVC/StorageClass · CSI deep dive
 
 06 Operations
-   kubectl troubleshooting · Events/logs/metrics · Autoscaling · Node pressure & eviction
+   kubectl troubleshooting · Events/logs/metrics · Autoscaling
+   Node pressure & eviction · Production incident simulator
 
 07 Configuration & Access
    ConfigMaps & Secrets · Namespaces & RBAC · ServiceAccounts & tokens · Quotas & LimitRanges
@@ -42,6 +45,10 @@ The site currently contains **36 interactive lessons** across eleven sections.
 
 11 API Machinery & Extensibility
    Admission control & webhooks · CRDs & operator pattern
+
+12 Control Plane & Node Internals
+   API server & etcd request lifecycle · Leases & leader election
+   kubelet internals · CRI & container runtime
 ```
 
 Helm is intentionally labeled as an ecosystem packaging tool rather than a Kubernetes core API primitive.
@@ -54,7 +61,7 @@ A strong lesson follows this sequence:
 Mental model → Visualization → Experiment → Break it → Inspect evidence → Challenge
 ```
 
-Examples implemented include scheduling using requests while live CPU tells a different story, cgroup v2 CPU quota visualization, controller reconciliation, probe failures, Service/EndpointSlice forwarding, RBAC and ServiceAccount authorization, Pod Security Admission, topology spread, scheduler extension points, kubelet node-pressure eviction, CRD/operator reconciliation, and admission webhook failure behavior.
+The site now spans scheduler/resource accounting, Linux cgroups, controller reconciliation, rollout and probe behavior, CNI/CSI/CRI boundaries, Service and EndpointSlice internals, RBAC/workload identity, Pod Security, admission, CRDs/operators, kubelet reconciliation, etcd-backed API state, Lease-based coordination, and production incident diagnosis.
 
 ## Repository layout
 
@@ -98,26 +105,34 @@ Teaching simulations deliberately simplify implementation detail where required,
 
 - Scheduler feasibility is based on requested resources rather than instantaneous utilization.
 - Linux CPU quota examples use an idealized aggregate CPU-time model; real execution is not perfectly synchronized.
+- QoS classes are derived from resource configuration and influence node-pressure eviction/OOM behavior; they are not scheduler PriorityClasses.
+- Regular init containers run to completion before app containers. Kubernetes-native sidecars are restartable init containers with `restartPolicy: Always` and are stable in modern Kubernetes.
+- Startup, readiness and liveness probes have different consequences. Readiness removes traffic; liveness/startup failures can restart a container.
+- CNI, CRI and CSI are interfaces. The exact implementation is provider/runtime/driver specific.
+- A PVC being Bound does not prove node-side attach/mount succeeded.
+- The API server may serve reads using caches; do not assume every GET is a direct etcd read. etcd is the authoritative backing store for Kubernetes API data.
+- Lease objects are used for lightweight coordination such as node heartbeats and leader election.
 - ConfigMap/Secret projected-volume updates are asynchronous; environment variables require a new container to receive changed values.
 - Base64 does not make a Kubernetes Secret encrypted.
 - NetworkPolicy requires a networking implementation that enforces it.
 - PodDisruptionBudgets constrain voluntary disruptions through eviction-aware workflows; kubelet node-pressure eviction is a different mechanism.
 - ServiceAccount projected tokens are time-bound and rotated; long-lived Secret-based tokens are discouraged.
 - Pod Security Admission uses namespace policy levels and enforce/warn/audit modes; the lesson uses a simplified subset of real Pod Security Standard checks.
-- kube-proxy implementation is version/platform dependent. Linux supports iptables, nftables and (in current releases) deprecated IPVS; Windows uses kernelspace mode.
+- kube-proxy implementation is version/platform dependent. Linux supports multiple dataplane modes; IPVS is deprecated in current Kubernetes releases.
 - A CustomResourceDefinition adds API schema/storage; a controller is what turns that desired state into reconciliation behavior.
 - Helm renders/packages Kubernetes resources; Kubernetes controllers reconcile those resources after submission.
 
 ## Primary references
 
 - Kubernetes docs: https://kubernetes.io/docs/
-- Scheduler framework: https://kubernetes.io/docs/concepts/scheduling-eviction/scheduling-framework/
-- Service virtual IPs and proxies: https://kubernetes.io/docs/reference/networking/virtual-ips/
-- Admission control: https://kubernetes.io/docs/reference/access-authn-authz/admission-controllers/
-- Custom resources: https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/
-- Operator pattern: https://kubernetes.io/docs/concepts/extend-kubernetes/operator/
-- ServiceAccounts: https://kubernetes.io/docs/concepts/security/service-accounts/
-- Pod Security Admission: https://kubernetes.io/docs/concepts/security/pod-security-admission/
+- Container Runtime Interface: https://kubernetes.io/docs/concepts/containers/cri/
+- Network plugins / CNI: https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/
+- Storage / CSI: https://kubernetes.io/docs/concepts/storage/volumes/
+- Pod QoS: https://kubernetes.io/docs/concepts/workloads/pods/pod-qos/
+- Sidecar containers: https://kubernetes.io/docs/concepts/workloads/pods/sidecar-containers/
+- Probes: https://kubernetes.io/docs/concepts/workloads/pods/probes/
+- Rolling updates: https://kubernetes.io/docs/tasks/run-application/update-deployment-rolling/
+- Leases: https://kubernetes.io/docs/concepts/architecture/leases/
 - Node-pressure eviction: https://kubernetes.io/docs/concepts/scheduling-eviction/node-pressure-eviction/
 - Linux CFS bandwidth control: https://docs.kernel.org/scheduler/sched-bwc.html
 
