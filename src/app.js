@@ -21,7 +21,17 @@ function lessonDescription(id) {
     'pv-pvc': 'Provision storage through a PVC, bind a PV, attach a Pod, and understand why persistent storage has a different lifecycle than Pods.',
     'kubectl-debug': 'Practice a repeatable symptom → evidence troubleshooting flow for Pending, CrashLoopBackOff, ImagePullBackOff and broken Services.',
     'events-logs-metrics': 'Choose the fastest signal for a symptom and practice correlating Kubernetes events, container logs and metrics instead of guessing.',
-    'autoscaling': 'Simulate HPA replica math, VPA rightsizing and node autoscaling to see how requests connect workload demand to schedulable cluster capacity.'
+    'autoscaling': 'Simulate HPA replica math, VPA rightsizing and node autoscaling to see how requests connect workload demand to schedulable cluster capacity.',
+    'configmaps-secrets': 'Change configuration live and compare environment-variable vs projected-volume consumption while learning why base64 does not equal encryption.',
+    'namespaces-rbac': 'Ask “can this identity do this verb on this resource in this namespace?” and learn Role, ClusterRole and least-privilege thinking.',
+    'quotas-limits': 'Submit Pods against a simulated LimitRange and ResourceQuota to separate admission policy from scheduler node placement.',
+    'jobs-cronjobs': 'Run finite work to completion, change parallelism, inject failures and experiment with CronJob concurrency policies.',
+    'statefulsets': 'Delete and recreate stable Pod ordinals, scale replicas and watch persistent identity stay attached to each StatefulSet member.',
+    'daemonsets': 'Add nodes and change eligibility rules to see why DaemonSets derive desired Pods from nodes instead of a replica count.',
+    'pdb-termination': 'Try voluntary evictions against a PDB and step through graceful Pod termination from serving traffic to clean exit.',
+    'networkpolicy': 'Start with open east-west traffic, introduce isolation, then add explicit allows and observe which application flows survive.',
+    'helm': 'Render a simplified chart from values and templates while keeping the boundary clear: Helm packages manifests; Kubernetes reconciles them.',
+    'production-capstone': 'Assemble a production-style workload from Deployments, Services, probes, resources, PDBs, NetworkPolicies, autoscaling and storage decisions.'
   };
   return descriptions[id] || 'Interactive lesson coming soon.';
 }
@@ -105,7 +115,7 @@ function home() {
       <div>
         <div class="eyebrow">Interactive Kubernetes fundamentals</div>
         <h1>Stop memorizing.<br>Build the mental model.</h1>
-        <p class="hero-copy">A visual playground for beginners who want to understand what Kubernetes is actually doing — from API objects and scheduling to networking, storage and troubleshooting.</p>
+        <p class="hero-copy">A visual playground for beginners who want to understand what Kubernetes is actually doing — from API objects and scheduling to networking, storage, security, reliability and troubleshooting.</p>
         <div class="chip-row" style="margin-top:22px">
           <button class="primary-btn" data-lesson="why-kubernetes">Start the learning path →</button>
           <span class="badge">No cluster required</span><span class="badge">GitHub Pages friendly</span>
@@ -117,7 +127,7 @@ function home() {
           <div class="cyan">deployment.apps/web created</div><br>
           <div class="amber"># What happens after this?</div>
           <div># API server → controller → scheduler → kubelet</div>
-          <div># then Linux cgroups, networking and storage</div><br>
+          <div># then cgroups, networking, storage and policy</div><br>
           <div class="green">Learn the mechanism, not the command list →</div>
         </div>
       </div>
