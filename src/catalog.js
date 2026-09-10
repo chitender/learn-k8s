@@ -4,7 +4,9 @@ export const curriculum = [
     lessons: [
       { id: 'why-kubernetes', title: 'Why Kubernetes?', status: 'ready', level: 'Beginner', minutes: 10 },
       { id: 'cluster-architecture', title: 'Cluster architecture', status: 'ready', level: 'Beginner', minutes: 15 },
-      { id: 'declarative-model', title: 'Declarative desired state', status: 'ready', level: 'Beginner', minutes: 12 }
+      { id: 'declarative-model', title: 'Declarative desired state', status: 'ready', level: 'Beginner', minutes: 12 },
+      { id: 'object-anatomy', title: 'API object & YAML anatomy', status: 'ready', level: 'Beginner', minutes: 18 },
+      { id: 'labels-selectors', title: 'Labels & selectors', status: 'ready', level: 'Beginner', minutes: 18 }
     ]
   },
   {
@@ -110,7 +112,7 @@ export const curriculum = [
     id: 'practice-mastery', title: '13 · Practice & Mastery', description: 'Combine concepts under pressure, earn bonus XP, and practice diagnosing the whole cluster.',
     lessons: [
       { id: 'challenge-arena', title: 'CKA / SRE challenge arena', status: 'ready', level: 'Beginner → Advanced', minutes: 30 },
-      { id: 'cluster-sandbox', title: 'Whole-cluster sandbox', status: 'ready', level: 'Intermediate → Advanced', minutes: 35 }
+      { id: 'cluster-sandbox', title: 'Whole-cluster sandbox', status: 'ready', level: 'Intermediate → Advanced', minutes: 40 }
     ]
   }
 ];
@@ -119,6 +121,8 @@ export const lessonLoaders = {
   'why-kubernetes': () => import('./modules/why-kubernetes.js'),
   'cluster-architecture': () => import('./modules/cluster-architecture.js'),
   'declarative-model': () => import('./modules/declarative-model.js'),
+  'object-anatomy': () => import('./modules/object-anatomy.js'),
+  'labels-selectors': () => import('./modules/labels-selectors.js'),
   'pods': () => import('./modules/pods.js'),
   'deployments': () => import('./modules/deployments.js'),
   'pod-lifecycle': () => import('./modules/pod-lifecycle.js'),

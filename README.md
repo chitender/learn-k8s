@@ -2,15 +2,16 @@
 
 **See it. Break it. Understand it.**
 
-An interactive, beginner-first learning platform for Kubernetes fundamentals, production internals, and SRE-style troubleshooting. The goal is not another wall of documentation: every lesson should build a mental model, visualize what Kubernetes/Linux is doing, let the learner change inputs, and then test understanding.
+An interactive, beginner-first Kubernetes learning platform that grows from core mental models into production internals and SRE-style diagnosis. It is intentionally not another wall of YAML or command memorization: each lab explains the mechanism, gives the learner controls, creates a failure mode, and shows the evidence Kubernetes or Linux would expose.
 
-## What is live
+## Current release
 
-The site currently contains **49 interactive lessons** across thirteen sections.
+The site contains **51 interactive lessons** across thirteen sections and is validated against a **Kubernetes v1.37** content baseline (v1.37.0 released 2026-08-26; project content validation date 2026-09-10).
 
 ```text
 01 Foundations
    Why Kubernetes? · Cluster architecture · Declarative desired state
+   API object & YAML anatomy · Labels & selectors
 
 02 Workloads
    Pods & containers · Deployments & ReplicaSets · Pod lifecycle & probes
@@ -18,7 +19,8 @@ The site currently contains **49 interactive lessons** across thirteen sections.
 
 03 Scheduling & Resources
    CPU scheduling & throttling · Memory & OOM · Affinity/taints
-   QoS classes & eviction ranking · Priority & preemption · Topology spread · Scheduler framework
+   QoS classes & eviction ranking · Priority & preemption
+   Topology spread · Scheduler framework
 
 04 Networking
    Pod networking · CNI deep dive · Services & kube-proxy
@@ -32,7 +34,8 @@ The site currently contains **49 interactive lessons** across thirteen sections.
    Node pressure & eviction · Production incident simulator
 
 07 Configuration & Access
-   ConfigMaps & Secrets · Namespaces & RBAC · ServiceAccounts & tokens · Quotas & LimitRanges
+   ConfigMaps & Secrets · Namespaces & RBAC · ServiceAccounts & tokens
+   ResourceQuota & LimitRange
 
 08 Workload Patterns
    Jobs & CronJobs · StatefulSets · DaemonSets
@@ -54,30 +57,57 @@ The site currently contains **49 interactive lessons** across thirteen sections.
    CKA / SRE challenge arena · Whole-cluster sandbox
 ```
 
-Helm is intentionally labeled as an ecosystem packaging tool rather than a Kubernetes core API primitive.
+Helm is deliberately presented as an ecosystem packaging tool rather than a Kubernetes core API primitive.
 
 ## Learning experience
 
-The site stays fully static while behaving more like a learning product:
+The application stays static and backend-free while behaving like a learning product:
 
-- **100 XP per completed lesson** and one-time challenge bonus XP
+- **100 XP per completed lesson** plus one-time challenge bonus XP
 - six ranks from **Pod Explorer** to **Control Plane Sage**
-- achievement badges and section-by-section progress
-- prerequisite-aware **recommended next lesson** guidance without hard locks
-- curriculum **search**, difficulty filtering, and completed/incomplete filtering
-- **collapsible sidebar sections** and a mobile navigation drawer
-- a dedicated **Progress & Achievements** page
-- versioned JSON **export/import** so learners can move progress between browsers or devices
-- one-click reset limited to Learn Kubernetes progress keys
-- no account or backend required; learning state stays in browser `localStorage`
+- achievements and progress by curriculum section
+- prerequisite-aware recommended-next guidance without hard locks
+- curriculum search plus level and completion filters
+- collapsible desktop navigation and a mobile drawer
+- dedicated **Progress & Achievements** page
+- versioned JSON progress export/import/reset
+- route-specific page titles, keyboard focus, skip navigation and reduced-motion support
+- a searchable **Kubernetes glossary**
+- per-lesson links to the official source used for validation
+- no account, tracking backend, or server-side learner profile; progress stays in `localStorage`
 
-The learning system rewards understanding rather than page views: challenge bonus XP can only be earned once per question.
+## Learning tracks
+
+The entire curriculum is always open, but three curated routes reduce decision fatigue:
+
+- **🌱 Beginner Core** — object model → controllers → workloads → resources → networking → storage → debugging
+- **⚔️ CKA Foundations** — operational workload, scheduling, networking, storage, security, and troubleshooting mechanics
+- **🚨 Production SRE** — cgroups, QoS, scheduler internals, CNI/CSI, autoscaling, node pressure, control plane/node internals, and incidents
+
+Tracks are guidance, not separate copies of content and not gates.
 
 ## Practice modes
 
-The **CKA / SRE Challenge Arena** is data-driven. Questions live in `src/data/challenges.js`, making the pool easy to expand without rewriting UI logic. Learners can filter by track, Kubernetes domain, and difficulty.
+### CKA / SRE Challenge Arena
 
-The **Whole-cluster sandbox** deliberately combines scheduler, kubelet, CNI, cgroup, readiness, endpoint and Service behavior so a single symptom can cross subsystem boundaries.
+Questions are data-driven (`src/data/challenges.js`) and can be filtered by track, domain, and difficulty. Answers explain the subsystem boundary instead of only marking the choice correct or incorrect. One-time bonus XP rewards solving rather than reloading.
+
+### Whole-cluster Sandbox v2
+
+The sandbox uses a reusable state engine rather than independent text toggles. Learners can:
+
+- schedule new Pods using **request-based node feasibility**
+- inspect feasible and rejected scheduler candidates
+- change a Pod request, limit, and simulated CPU demand
+- see the corresponding cgroup-v2-style `cpu.max` and idealized quota effect
+- cordon, uncordon, drain, fail, and recover nodes
+- break/repair a node network dataplane
+- create Pending workloads and retry them after capacity changes
+- observe readiness, EndpointSlice eligibility, and Service reachability separately
+- drag a Pod to another node as an explicitly labeled **what-if placement test**
+- send Service requests and correlate failures with a Kubernetes-style event stream
+
+The drag action is not presented as a real Kubernetes primitive. It asks whether a placement *would* be feasible and is used only as a learning interaction.
 
 ## Learning philosophy
 
@@ -87,7 +117,42 @@ A strong lesson follows this sequence:
 Mental model → Visualization → Experiment → Break it → Inspect evidence → Challenge
 ```
 
-The site spans scheduler/resource accounting, Linux cgroups, controller reconciliation, rollout and probe behavior, CNI/CSI/CRI boundaries, Service and EndpointSlice internals, RBAC/workload identity, Pod Security, admission, CRDs/operators, kubelet reconciliation, etcd-backed API state, Lease-based coordination, and production incident diagnosis.
+The recurring diagnostic model is equally important:
+
+```text
+Symptom
+  ↓
+What evidence changed?
+  ↓
+Which subsystem owns that decision?
+  ↓
+Scheduler / API / controller / kubelet / CRI / CNI / CSI / Linux / application
+```
+
+## Accuracy baseline
+
+Teaching simulations simplify implementation details when needed, but simplifications should be visible in the UI. Every ready lesson must also have an official reference in `src/data/lesson-resources.js` before validation succeeds.
+
+Important assumptions and boundaries:
+
+- Scheduler feasibility is based on requested resources rather than instantaneous node utilization.
+- Linux CPU-limit examples use an idealized aggregate CPU-time model; a 100ms bandwidth period is not a 100ms task scheduling slice and the UI does not invent fixed 10ms CFS slices.
+- CPU limits can throttle a cgroup even while node CPUs are idle; memory limits are enforced differently and can lead to OOM behavior rather than periodic CPU-style quota replenishment.
+- QoS classes are derived from resource configuration and influence node-pressure behavior; they are not scheduler PriorityClasses.
+- A toleration permits scheduling onto a matching taint; it does not force placement there.
+- A Service is a stable networking abstraction whose endpoints are derived from selectors/readiness; it does not contain Pods.
+- CNI, CRI, and CSI are interfaces. Exact dataplane/runtime/storage implementation is provider- and driver-specific.
+- A PVC being `Bound` does not prove node-side attach or mount succeeded.
+- The API server may serve reads from caches; etcd remains the authoritative backing store for Kubernetes API state.
+- Base64 does not make a Kubernetes Secret encrypted.
+- NetworkPolicy requires a networking implementation that enforces it.
+- PodDisruptionBudgets constrain voluntary disruptions through eviction-aware flows; kubelet node-pressure eviction is a different mechanism.
+- ServiceAccount projected tokens are time-bound and rotated; long-lived Secret-based tokens are discouraged.
+- Pod Security Admission uses namespace policy levels plus enforce/warn/audit modes; the interactive lesson uses a simplified subset of the actual Pod Security Standards.
+- kube-proxy implementation is version/platform dependent; learners should not treat one dataplane mode as universal.
+- A CRD adds a custom API schema/resource; a controller/operator supplies the reconciliation behavior.
+- Helm renders/packages Kubernetes resources; Kubernetes controllers reconcile the rendered resources after submission.
+- In Kubernetes v1.37, HPA scale-to-zero is Beta and enabled by default. `minReplicas: 0` requires at least one Object or External metric; Pod resource metrics such as CPU/memory alone cannot wake a zero-replica workload.
 
 ## Repository layout
 
@@ -95,35 +160,68 @@ The site spans scheduler/resource accounting, Linux cgroups, controller reconcil
 learn-k8s/
 ├── index.html
 ├── styles.css
-├── styles-experience.css       # search, progress and responsive/mobile UI
+├── styles-experience.css
+├── package.json
+├── scripts/
+│   └── validate.mjs             # zero-dependency curriculum/syntax integrity validation
 ├── src/
-│   ├── app.js                  # shell, routing and page composition
-│   ├── catalog.js              # curriculum + lesson loader manifest
-│   ├── gamification.js         # XP, ranks, progress portability and prerequisites
+│   ├── app.js                   # shell, routing, pages and lesson loading
+│   ├── catalog.js               # curriculum + loader manifest
+│   ├── gamification.js          # XP, achievements, progress portability, prerequisites
 │   ├── data/
-│   │   ├── challenges.js       # challenge question definitions
-│   │   └── lesson-descriptions.js
+│   │   ├── challenges.js
+│   │   ├── glossary.js
+│   │   ├── learning-tracks.js
+│   │   ├── lesson-descriptions.js
+│   │   └── lesson-resources.js  # official references + Kubernetes baseline
+│   ├── sim/
+│   │   └── cluster-engine.js    # reusable whole-cluster state/event engine
 │   ├── ui/
-│   │   └── learning-ui.js      # search, sidebar/mobile behavior and toasts
-│   └── modules/                # one interactive module per lesson
+│   │   ├── content-pages.js
+│   │   └── learning-ui.js
+│   └── modules/                 # one interactive module per lesson
 └── .github/workflows/
-    └── pages.yml               # GitHub Pages deployment
+    ├── validate.yml             # PR integrity validation
+    └── pages.yml                # validate then deploy GitHub Pages
 ```
 
-## Add a new lesson
+## Validation
+
+No dependency install is required. With Node 20+:
+
+```bash
+npm run validate
+```
+
+The validator fails if, among other things:
+
+- a ready lesson has no loader or module file
+- a lesson module does not export `mount()`
+- a ready lesson lacks learner-facing description or official reference
+- lesson/section/challenge/glossary IDs collide
+- prerequisites or learning tracks reference missing lessons
+- a challenge answer index is invalid
+- the README lesson count is stale
+- any JavaScript module fails `node --check`
+
+Pull requests run the validator, and the Pages workflow validates again before publishing.
+
+## Add a lesson
 
 1. Create `src/modules/<lesson-id>.js` and export `mount(root, context)` plus optional `unmount()`.
-2. Add the lesson to the appropriate section in `src/catalog.js`.
-3. Mark it `status: 'ready'` only when a working module exists.
-4. Add the dynamic loader in `lessonLoaders`.
-5. Add learner-facing text to `src/data/lesson-descriptions.js`.
-6. If the lesson has useful prerequisites, add them to `PREREQUISITES` in `src/gamification.js`.
+2. Add it to the correct section in `src/catalog.js`.
+3. Add its dynamic loader to `lessonLoaders`.
+4. Add concise learner-facing copy to `src/data/lesson-descriptions.js`.
+5. Add at least one primary/official source to `src/data/lesson-resources.js`.
+6. Add prerequisite guidance in `src/gamification.js` only when it materially helps the learning sequence.
+7. Run `npm run validate`.
+8. Mark lessons `ready` only when the interactive module exists and the validator passes.
 
-Avoid teaching syntax before explaining the mechanism. Prefer showing a failure mode over adding another paragraph.
+Avoid teaching syntax before explaining the mechanism. Prefer an observable failure mode over another paragraph.
 
 ## Add a challenge
 
-Add a challenge object to `src/data/challenges.js`. The Arena automatically picks up its track, domain, difficulty, choices, answer and explanation.
+Add a challenge object to `src/data/challenges.js`. The Arena automatically reads its track, domain, difficulty, choices, answer, and explanation. `npm run validate` verifies IDs, difficulty, choices, and answer indexes.
 
 ## Run locally
 
@@ -133,47 +231,25 @@ python3 -m http.server 8080
 
 Then open `http://localhost:8080`.
 
-## Deploy with GitHub Pages
+Run validation separately with:
 
-The repository uses GitHub Actions for Pages deployment. Pushes to `main` publish the static site when Pages uses **GitHub Actions** as its source.
+```bash
+npm run validate
+```
 
-## Accuracy notes
+## Deploy
 
-Teaching simulations deliberately simplify implementation detail where required, and simplifications should be labeled in the UI.
-
-- Scheduler feasibility is based on requested resources rather than instantaneous utilization.
-- Linux CPU quota examples use an idealized aggregate CPU-time model; real execution is not perfectly synchronized.
-- QoS classes are derived from resource configuration and influence node-pressure eviction/OOM behavior; they are not scheduler PriorityClasses.
-- Regular init containers run to completion before app containers. Kubernetes-native sidecars are restartable init containers with `restartPolicy: Always` and are stable in modern Kubernetes.
-- Startup, readiness and liveness probes have different consequences. Readiness removes traffic; liveness/startup failures can restart a container.
-- CNI, CRI and CSI are interfaces. The exact implementation is provider/runtime/driver specific.
-- A PVC being Bound does not prove node-side attach/mount succeeded.
-- The API server may serve reads using caches; do not assume every GET is a direct etcd read. etcd is the authoritative backing store for Kubernetes API data.
-- Lease objects are used for lightweight coordination such as node heartbeats and leader election.
-- ConfigMap/Secret projected-volume updates are asynchronous; environment variables require a new container to receive changed values.
-- Base64 does not make a Kubernetes Secret encrypted.
-- NetworkPolicy requires a networking implementation that enforces it.
-- PodDisruptionBudgets constrain voluntary disruptions through eviction-aware workflows; kubelet node-pressure eviction is a different mechanism.
-- ServiceAccount projected tokens are time-bound and rotated; long-lived Secret-based tokens are discouraged.
-- Pod Security Admission uses namespace policy levels and enforce/warn/audit modes; the lesson uses a simplified subset of real Pod Security Standard checks.
-- kube-proxy implementation is version/platform dependent. Linux supports multiple dataplane modes; IPVS is deprecated in current Kubernetes releases.
-- A CustomResourceDefinition adds API schema/storage; a controller is what turns that desired state into reconciliation behavior.
-- Helm renders/packages Kubernetes resources; Kubernetes controllers reconcile those resources after submission.
+GitHub Pages is deployed through GitHub Actions. A push to `main` runs the same validation gate first, then configures Pages, uploads the static artifact, and deploys it.
 
 ## Primary references
 
-- Kubernetes docs: https://kubernetes.io/docs/
-- Container Runtime Interface: https://kubernetes.io/docs/concepts/containers/cri/
-- Network plugins / CNI: https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/
-- Storage / CSI: https://kubernetes.io/docs/concepts/storage/volumes/
-- Pod QoS: https://kubernetes.io/docs/concepts/workloads/pods/pod-qos/
-- Sidecar containers: https://kubernetes.io/docs/concepts/workloads/pods/sidecar-containers/
-- Probes: https://kubernetes.io/docs/concepts/workloads/pods/probes/
-- Rolling updates: https://kubernetes.io/docs/tasks/run-application/update-deployment-rolling/
-- Leases: https://kubernetes.io/docs/concepts/architecture/leases/
-- Node-pressure eviction: https://kubernetes.io/docs/concepts/scheduling-eviction/node-pressure-eviction/
-- Linux CFS bandwidth control: https://docs.kernel.org/scheduler/sched-bwc.html
+Lesson-specific primary sources are surfaced directly in the UI. The project primarily relies on:
+
+- Kubernetes documentation: https://kubernetes.io/docs/
+- Kubernetes release history: https://kubernetes.io/releases/
+- Linux scheduler / CFS bandwidth documentation: https://docs.kernel.org/scheduler/sched-bwc.html
+- Helm documentation: https://helm.sh/docs/
 
 ## Philosophy
 
-A beginner should be able to answer **why Kubernetes behaved a certain way** before memorizing another command.
+A learner should be able to answer **why Kubernetes behaved a certain way** before memorizing another command.

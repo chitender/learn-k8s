@@ -24,6 +24,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Validate curriculum and JavaScript
+        run: npm run validate
+
       - name: Configure Pages
         uses: actions/configure-pages@v5
         with:
