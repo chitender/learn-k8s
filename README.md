@@ -2,59 +2,46 @@
 
 **See it. Break it. Understand it.**
 
-An interactive, beginner-first learning platform for Kubernetes fundamentals. The goal is not another wall of documentation: every lesson should build a mental model, visualize what Kubernetes/Linux is doing, let the learner change inputs, and then test understanding.
+An interactive, beginner-first learning platform for Kubernetes fundamentals and production internals. The goal is not another wall of documentation: every lesson should build a mental model, visualize what Kubernetes/Linux is doing, let the learner change inputs, and then test understanding.
 
 ## What is live
 
-The site currently contains **27 interactive lessons** across ten sections:
+The site currently contains **36 interactive lessons** across eleven sections.
 
 ```text
 01 Foundations
-   ├── Why Kubernetes?
-   ├── Cluster architecture
-   └── Declarative desired state
+   Why Kubernetes? · Cluster architecture · Declarative desired state
 
 02 Workloads
-   ├── Pods & containers
-   ├── Deployments & ReplicaSets
-   └── Pod lifecycle & probes
+   Pods & containers · Deployments & ReplicaSets · Pod lifecycle & probes
 
 03 Scheduling & Resources
-   ├── CPU scheduling & throttling
-   ├── Memory requests, limits & OOM
-   └── Affinity, taints & tolerations
+   CPU scheduling & throttling · Memory & OOM · Affinity/taints
+   Priority & preemption · Topology spread · Scheduler framework
 
 04 Networking
-   ├── Pod networking
-   ├── Services & kube-proxy
-   └── DNS & Ingress
+   Pod networking · Services & kube-proxy · Service internals & EndpointSlices · DNS & Ingress
 
 05 Storage
-   ├── Volumes & persistence
-   └── PV, PVC & StorageClass
+   Volumes & persistence · PV/PVC/StorageClass
 
 06 Operations
-   ├── kubectl troubleshooting
-   ├── Events, logs & metrics
-   └── HPA, VPA & Cluster Autoscaler
+   kubectl troubleshooting · Events/logs/metrics · Autoscaling · Node pressure & eviction
 
 07 Configuration & Access
-   ├── ConfigMaps & Secrets
-   ├── Namespaces & RBAC
-   └── ResourceQuota & LimitRange
+   ConfigMaps & Secrets · Namespaces & RBAC · ServiceAccounts & tokens · Quotas & LimitRanges
 
 08 Workload Patterns
-   ├── Jobs & CronJobs
-   ├── StatefulSets
-   └── DaemonSets
+   Jobs & CronJobs · StatefulSets · DaemonSets
 
 09 Reliability & Security
-   ├── PDBs & graceful termination
-   └── NetworkPolicy
+   PDBs & graceful termination · NetworkPolicy · Pod Security Admission
 
 10 Packaging & Capstone
-   ├── Helm chart mental model
-   └── Production app capstone
+   Helm chart mental model · Production app capstone
+
+11 API Machinery & Extensibility
+   Admission control & webhooks · CRDs & operator pattern
 ```
 
 Helm is intentionally labeled as an ecosystem packaging tool rather than a Kubernetes core API primitive.
@@ -67,22 +54,7 @@ A strong lesson follows this sequence:
 Mental model → Visualization → Experiment → Break it → Inspect evidence → Challenge
 ```
 
-Examples already implemented include:
-
-- scheduling a Pod using requests while live CPU tells a different story
-- visualizing cgroup v2 CPU quota and throttling
-- creating controller drift and watching reconciliation repair it
-- breaking readiness/liveness independently
-- tracing Service, DNS and Ingress request paths
-- comparing container restart, Pod replacement and persistent volume lifetimes
-- testing RBAC authorization decisions
-- submitting Pods against ResourceQuota and LimitRange constraints
-- simulating Job completion, CronJob concurrency and StatefulSet stable identity
-- changing DaemonSet node eligibility
-- testing voluntary eviction against a PodDisruptionBudget
-- progressively isolating traffic with NetworkPolicy
-- rendering a simplified Helm chart from values
-- assembling a production-style workload in a capstone review
+Examples implemented include scheduling using requests while live CPU tells a different story, cgroup v2 CPU quota visualization, controller reconciliation, probe failures, Service/EndpointSlice forwarding, RBAC and ServiceAccount authorization, Pod Security Admission, topology spread, scheduler extension points, kubelet node-pressure eviction, CRD/operator reconciliation, and admission webhook failure behavior.
 
 ## Repository layout
 
@@ -100,8 +72,6 @@ learn-k8s/
 
 ## Add a new lesson
 
-Keep lessons modular. A lesson owns its interactive state/UI while the platform owns navigation and routing.
-
 1. Create `src/modules/<lesson-id>.js` and export `mount(root, context)` plus optional `unmount()`.
 2. Add the lesson to the appropriate section in `src/catalog.js`.
 3. Mark it `status: 'ready'` only when a working module exists.
@@ -112,8 +82,6 @@ Avoid teaching syntax before explaining the mechanism. Prefer showing a failure 
 
 ## Run locally
 
-Because JavaScript modules require an HTTP origin, use a simple local server:
-
 ```bash
 python3 -m http.server 8080
 ```
@@ -122,31 +90,36 @@ Then open `http://localhost:8080`.
 
 ## Deploy with GitHub Pages
 
-The repository uses GitHub Actions for Pages deployment. Pushes to `main` publish the static site when Pages is configured to use **GitHub Actions** as its source.
+The repository uses GitHub Actions for Pages deployment. Pushes to `main` publish the static site when Pages uses **GitHub Actions** as its source.
 
 ## Accuracy notes
 
-Teaching simulations deliberately simplify implementation detail where required, and those simplifications should be labeled in the UI. Important examples:
+Teaching simulations deliberately simplify implementation detail where required, and simplifications should be labeled in the UI.
 
-- Kubernetes scheduler feasibility is based on requested resources rather than instantaneous utilization.
-- Linux CPU quota examples use an idealized aggregate CPU-time model; real kernel execution is not perfectly synchronized.
+- Scheduler feasibility is based on requested resources rather than instantaneous utilization.
+- Linux CPU quota examples use an idealized aggregate CPU-time model; real execution is not perfectly synchronized.
 - ConfigMap/Secret projected-volume updates are asynchronous; environment variables require a new container to receive changed values.
-- Kubernetes Secrets are not made secure merely by base64 encoding; protect them with access control and appropriate encryption/storage practices.
+- Base64 does not make a Kubernetes Secret encrypted.
 - NetworkPolicy requires a networking implementation that enforces it.
-- PodDisruptionBudgets constrain voluntary disruptions through eviction-aware workflows; they do not prevent all Pod loss.
-- Helm renders/packages Kubernetes resources; Kubernetes controllers perform reconciliation after those resources are submitted.
+- PodDisruptionBudgets constrain voluntary disruptions through eviction-aware workflows; kubelet node-pressure eviction is a different mechanism.
+- ServiceAccount projected tokens are time-bound and rotated; long-lived Secret-based tokens are discouraged.
+- Pod Security Admission uses namespace policy levels and enforce/warn/audit modes; the lesson uses a simplified subset of real Pod Security Standard checks.
+- kube-proxy implementation is version/platform dependent. Linux supports iptables, nftables and (in current releases) deprecated IPVS; Windows uses kernelspace mode.
+- A CustomResourceDefinition adds API schema/storage; a controller is what turns that desired state into reconciliation behavior.
+- Helm renders/packages Kubernetes resources; Kubernetes controllers reconcile those resources after submission.
 
-Useful primary references:
+## Primary references
 
-- Kubernetes documentation: https://kubernetes.io/docs/
-- Kubernetes resource management: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
-- Kubernetes scheduler: https://kubernetes.io/docs/concepts/scheduling-eviction/kube-scheduler/
-- Kubernetes networking: https://kubernetes.io/docs/concepts/services-networking/
-- Kubernetes storage: https://kubernetes.io/docs/concepts/storage/
-- Kubernetes RBAC: https://kubernetes.io/docs/reference/access-authn-authz/rbac/
+- Kubernetes docs: https://kubernetes.io/docs/
+- Scheduler framework: https://kubernetes.io/docs/concepts/scheduling-eviction/scheduling-framework/
+- Service virtual IPs and proxies: https://kubernetes.io/docs/reference/networking/virtual-ips/
+- Admission control: https://kubernetes.io/docs/reference/access-authn-authz/admission-controllers/
+- Custom resources: https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/
+- Operator pattern: https://kubernetes.io/docs/concepts/extend-kubernetes/operator/
+- ServiceAccounts: https://kubernetes.io/docs/concepts/security/service-accounts/
+- Pod Security Admission: https://kubernetes.io/docs/concepts/security/pod-security-admission/
+- Node-pressure eviction: https://kubernetes.io/docs/concepts/scheduling-eviction/node-pressure-eviction/
 - Linux CFS bandwidth control: https://docs.kernel.org/scheduler/sched-bwc.html
-- Linux cgroup v2: https://docs.kernel.org/admin-guide/cgroup-v2.html
-- Helm docs: https://helm.sh/docs/
 
 ## Philosophy
 

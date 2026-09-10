@@ -22,20 +22,24 @@ export const curriculum = [
   {
     id: 'scheduling-resources',
     title: '03 · Scheduling & Resources',
-    description: 'Understand placement, requests, limits and what Linux actually enforces.',
+    description: 'Understand placement, requests, limits and the scheduler pipeline behind placement decisions.',
     lessons: [
       { id: 'cpu-scheduling', title: 'CPU scheduling & throttling', status: 'ready', level: 'Beginner → Intermediate', minutes: 30 },
       { id: 'memory', title: 'Memory requests, limits & OOM', status: 'ready', level: 'Beginner', minutes: 25 },
-      { id: 'affinity-taints', title: 'Affinity, taints & tolerations', status: 'ready', level: 'Intermediate', minutes: 25 }
+      { id: 'affinity-taints', title: 'Affinity, taints & tolerations', status: 'ready', level: 'Intermediate', minutes: 25 },
+      { id: 'priority-preemption', title: 'Priority & preemption', status: 'ready', level: 'Intermediate', minutes: 22 },
+      { id: 'topology-spread', title: 'Topology spread constraints', status: 'ready', level: 'Intermediate', minutes: 22 },
+      { id: 'scheduler-framework', title: 'Scheduler framework', status: 'ready', level: 'Intermediate → Advanced', minutes: 28 }
     ]
   },
   {
     id: 'networking',
     title: '04 · Networking',
-    description: 'Traffic flow from Pod IP to Service to Ingress.',
+    description: 'Traffic flow from Pod IP to Service, EndpointSlice and Ingress.',
     lessons: [
       { id: 'pod-networking', title: 'Pod networking', status: 'ready', level: 'Beginner', minutes: 20 },
       { id: 'services', title: 'Services & kube-proxy', status: 'ready', level: 'Beginner', minutes: 25 },
+      { id: 'service-internals', title: 'Service internals & EndpointSlices', status: 'ready', level: 'Intermediate', minutes: 25 },
       { id: 'dns-ingress', title: 'DNS & Ingress', status: 'ready', level: 'Intermediate', minutes: 25 }
     ]
   },
@@ -51,20 +55,22 @@ export const curriculum = [
   {
     id: 'operations',
     title: '06 · Operations',
-    description: 'Troubleshooting, observability and safe production habits.',
+    description: 'Troubleshooting, observability, autoscaling and node survival behavior.',
     lessons: [
       { id: 'kubectl-debug', title: 'kubectl troubleshooting', status: 'ready', level: 'Beginner', minutes: 25 },
       { id: 'events-logs-metrics', title: 'Events, logs & metrics', status: 'ready', level: 'Beginner', minutes: 25 },
-      { id: 'autoscaling', title: 'HPA, VPA & Cluster Autoscaler', status: 'ready', level: 'Intermediate', minutes: 30 }
+      { id: 'autoscaling', title: 'HPA, VPA & Cluster Autoscaler', status: 'ready', level: 'Intermediate', minutes: 30 },
+      { id: 'node-pressure-eviction', title: 'Node pressure & eviction', status: 'ready', level: 'Intermediate', minutes: 24 }
     ]
   },
   {
     id: 'configuration-access',
     title: '07 · Configuration & Access',
-    description: 'Inject configuration safely, isolate teams, and control API access and namespace budgets.',
+    description: 'Inject configuration safely, isolate teams, and control workload/API identity.',
     lessons: [
       { id: 'configmaps-secrets', title: 'ConfigMaps & Secrets', status: 'ready', level: 'Beginner', minutes: 20 },
       { id: 'namespaces-rbac', title: 'Namespaces & RBAC', status: 'ready', level: 'Beginner → Intermediate', minutes: 25 },
+      { id: 'serviceaccounts-tokens', title: 'ServiceAccounts & tokens', status: 'ready', level: 'Intermediate', minutes: 22 },
       { id: 'quotas-limits', title: 'ResourceQuota & LimitRange', status: 'ready', level: 'Intermediate', minutes: 20 }
     ]
   },
@@ -81,10 +87,11 @@ export const curriculum = [
   {
     id: 'reliability-security',
     title: '09 · Reliability & Security',
-    description: 'Protect availability during change and restrict east-west traffic intentionally.',
+    description: 'Protect availability during change and apply workload/network security guardrails.',
     lessons: [
       { id: 'pdb-termination', title: 'PDBs & graceful termination', status: 'ready', level: 'Intermediate', minutes: 25 },
-      { id: 'networkpolicy', title: 'NetworkPolicy', status: 'ready', level: 'Intermediate', minutes: 25 }
+      { id: 'networkpolicy', title: 'NetworkPolicy', status: 'ready', level: 'Intermediate', minutes: 25 },
+      { id: 'pod-security-admission', title: 'Pod Security Admission', status: 'ready', level: 'Intermediate', minutes: 24 }
     ]
   },
   {
@@ -94,6 +101,15 @@ export const curriculum = [
     lessons: [
       { id: 'helm', title: 'Helm chart mental model', status: 'ready', level: 'Beginner → Intermediate', minutes: 20 },
       { id: 'production-capstone', title: 'Production app capstone', status: 'ready', level: 'Intermediate', minutes: 35 }
+    ]
+  },
+  {
+    id: 'api-machinery',
+    title: '11 · API Machinery & Extensibility',
+    description: 'Understand how API requests are admitted and how Kubernetes can be extended without changing core Kubernetes.',
+    lessons: [
+      { id: 'admission-control', title: 'Admission control & webhooks', status: 'ready', level: 'Intermediate → Advanced', minutes: 28 },
+      { id: 'crds-operators', title: 'CRDs & operator pattern', status: 'ready', level: 'Intermediate → Advanced', minutes: 30 }
     ]
   }
 ];
@@ -108,24 +124,33 @@ export const lessonLoaders = {
   'cpu-scheduling': () => import('./modules/cpu-scheduling.js'),
   'memory': () => import('./modules/memory.js'),
   'affinity-taints': () => import('./modules/affinity-taints.js'),
+  'priority-preemption': () => import('./modules/priority-preemption.js'),
+  'topology-spread': () => import('./modules/topology-spread.js'),
+  'scheduler-framework': () => import('./modules/scheduler-framework.js'),
   'pod-networking': () => import('./modules/pod-networking.js'),
   'services': () => import('./modules/services.js'),
+  'service-internals': () => import('./modules/service-internals.js'),
   'dns-ingress': () => import('./modules/dns-ingress.js'),
   'volumes': () => import('./modules/volumes.js'),
   'pv-pvc': () => import('./modules/pv-pvc.js'),
   'kubectl-debug': () => import('./modules/kubectl-debug.js'),
   'events-logs-metrics': () => import('./modules/events-logs-metrics.js'),
   'autoscaling': () => import('./modules/autoscaling.js'),
+  'node-pressure-eviction': () => import('./modules/node-pressure-eviction.js'),
   'configmaps-secrets': () => import('./modules/configmaps-secrets.js'),
   'namespaces-rbac': () => import('./modules/namespaces-rbac.js'),
+  'serviceaccounts-tokens': () => import('./modules/serviceaccounts-tokens.js'),
   'quotas-limits': () => import('./modules/quotas-limits.js'),
   'jobs-cronjobs': () => import('./modules/jobs-cronjobs.js'),
   'statefulsets': () => import('./modules/statefulsets.js'),
   'daemonsets': () => import('./modules/daemonsets.js'),
   'pdb-termination': () => import('./modules/pdb-termination.js'),
   'networkpolicy': () => import('./modules/networkpolicy.js'),
+  'pod-security-admission': () => import('./modules/pod-security-admission.js'),
   'helm': () => import('./modules/helm.js'),
-  'production-capstone': () => import('./modules/production-capstone.js')
+  'production-capstone': () => import('./modules/production-capstone.js'),
+  'admission-control': () => import('./modules/admission-control.js'),
+  'crds-operators': () => import('./modules/crds-operators.js')
 };
 
 export function findLesson(id) {
