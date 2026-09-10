@@ -91,24 +91,23 @@ export function mount(root, { markComplete }) {
 
   function renderPods() {
     $('#pods').innerHTML = pods.map((pod, index) => `<button class="lesson-card pod-label-card ${index === state.selected ? 'selected' : ''}" data-pod-index="${index}" style="min-height:auto;margin-bottom:10px;width:100%"><div class="card-top"><strong>${pod.name}</strong><span class="badge">Pod</span></div><div class="chip-row">${Object.entries(pod.labels).map(([k,v]) => `<span class="badge">${k}=${v}</span>`).join('')}</div></button>`).join('');
-    root.querySelectorAll('[data-pod-index]').forEach(button => {
-      const handler = () => { state.selected = Number(button.dataset.podIndex); $('#track').value = pods[state.selected].labels.track || 'stable'; renderPods(); $('#selected-name').textContent = pods[state.selected].name; };
-      button.addEventListener('click', handler);
-      cleanup.push(() => button.removeEventListener('click', handler));
-    });
   }
 
   function evaluate(raw, target, command) {
     try {
       const rules = parseSelector(raw);
       const selected = pods.filter(pod => matches(pod.labels, rules));
-      target.className = `callout ${selected.length ? 'success' : 'warn'}`;
-      target.innerHTML = `<strong>${selected.length} Pod${selected.length === 1 ? '' : 's'} matched</strong><p>${selected.length ? selected.map(p => p.name).join(', ') : 'No Pod currently satisfies every requirement.'}</p>`;
+      if (target) {
+        target.className = `callout ${selected.length ? 'success' : 'warn'}`;
+        target.innerHTML = `<strong>${selected.length} Pod${selected.length === 1 ? '' : 's'} matched</strong><p>${selected.length ? selected.map(p => p.name).join(', ') : 'No Pod currently satisfies every requirement.'}</p>`;
+      }
       if (command) $('#kubectl').textContent = `$ kubectl get pods -l '${raw}'\n${selected.map(p => p.name).join('\n') || 'No resources found'}`;
       return selected;
     } catch (error) {
-      target.className = 'callout danger';
-      target.innerHTML = `<strong>Selector parse error</strong><p>${error.message}</p>`;
+      if (target) {
+        target.className = 'callout danger';
+        target.innerHTML = `<strong>Selector parse error</strong><p>${error.message}</p>`;
+      }
       if (command) $('#kubectl').textContent = '$ kubectl get pods -l ...\ninvalid selector in this teaching parser';
       return [];
     }
@@ -118,8 +117,8 @@ export function mount(root, { markComplete }) {
     renderPods();
     $('#selected-name').textContent = pods[state.selected].name;
     $('#track').value = pods[state.selected].labels.track || 'stable';
-    const selected = evaluate(state.selector, $('#selector-result'), true);
-    const serviceSelected = evaluate(state.serviceSelector, document.createElement('div'), false);
+    evaluate(state.selector, $('#selector-result'), true);
+    const serviceSelected = evaluate(state.serviceSelector, null, false);
     $('#service-result').innerHTML = `<div class="grid-3"><div class="metric"><span>Service</span><strong>web-svc</strong></div><div class="metric"><span>Selector</span><strong>${state.serviceSelector || '∅'}</strong></div><div class="metric"><span>Matching Pods</span><strong>${serviceSelected.length}</strong></div></div><div class="chip-row" style="margin-top:12px">${serviceSelected.map(p => `<span class="badge">→ ${p.name}</span>`).join('') || '<span class="badge">No endpoints selected</span>'}</div>`;
   }
 
@@ -127,10 +126,17 @@ export function mount(root, { markComplete }) {
   function serviceInput(event) { state.serviceSelector = event.target.value; render(); }
   function preset(event) { state.selector = event.currentTarget.dataset.selector; $('#selector').value = state.selector; render(); }
   function updateLabel() { pods[state.selected].labels.track = $('#track').value; render(); }
+  function selectPod(event) {
+    const button = event.target.closest('[data-pod-index]');
+    if (!button || !root.contains(button)) return;
+    state.selected = Number(button.dataset.podIndex);
+    render();
+  }
   function done() { markComplete(); }
 
   $('#selector').addEventListener('input', selectorInput); cleanup.push(() => $('#selector')?.removeEventListener('input', selectorInput));
   $('#service-selector').addEventListener('input', serviceInput); cleanup.push(() => $('#service-selector')?.removeEventListener('input', serviceInput));
+  $('#pods').addEventListener('click', selectPod); cleanup.push(() => $('#pods')?.removeEventListener('click', selectPod));
   root.querySelectorAll('.preset').forEach(button => { button.addEventListener('click', preset); cleanup.push(() => button.removeEventListener('click', preset)); });
   $('#update-label').addEventListener('click', updateLabel); cleanup.push(() => $('#update-label')?.removeEventListener('click', updateLabel));
   root.querySelector('[data-mark-complete]').addEventListener('click', done); cleanup.push(() => root.querySelector('[data-mark-complete]')?.removeEventListener('click', done));
