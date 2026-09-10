@@ -23,6 +23,15 @@ function routeType(route = currentRoute()) {
   return 'other';
 }
 
+function alreadyCompleted(lessonId) {
+  try {
+    const ids = JSON.parse(localStorage.getItem('learn-k8s-completed') || '[]');
+    return Array.isArray(ids) && ids.includes(lessonId);
+  } catch {
+    return false;
+  }
+}
+
 let lastRoute = null;
 let sandboxInteracted = false;
 
@@ -54,13 +63,18 @@ function trackRoute() {
 function trackLessonCompletion(target) {
   if (!target.closest('[data-mark-complete]')) return;
   const lessonId = lessonIdFromRoute();
-  if (!lessonId) return;
+  if (!lessonId || alreadyCompleted(lessonId)) return;
   send('lesson_completed', { lesson_id: lessonId });
 }
 
 function trackChallengeAttempt(target) {
   const option = target.closest('.arena-option');
   if (!option || lessonIdFromRoute() !== 'challenge-arena') return;
+  if (option.dataset.analyticsAnswered === '1') return;
+
+  document.querySelectorAll('#lesson-root .arena-option').forEach(button => {
+    button.dataset.analyticsAnswered = '1';
+  });
 
   // The lesson's own click handler updates feedback first; inspect it next frame.
   requestAnimationFrame(() => {
@@ -83,8 +97,10 @@ function trackSandboxInteraction(target) {
   send('sandbox_interaction');
 }
 
+// Capture lesson completion before the lesson handler updates localStorage.
+document.addEventListener('click', event => trackLessonCompletion(event.target), true);
+
 document.addEventListener('click', event => {
-  trackLessonCompletion(event.target);
   trackChallengeAttempt(event.target);
   trackSandboxInteraction(event.target);
 });
@@ -93,5 +109,5 @@ document.addEventListener('change', event => trackSandboxInteraction(event.targe
 window.addEventListener('hashchange', trackRoute);
 window.addEventListener('load', trackRoute, { once: true });
 
-// Keep the measurement ID visible to debugging tools without exposing any secret.
+// Measurement IDs are public identifiers; no Analytics secrets are embedded here.
 window.learnK8sAnalytics = Object.freeze({ measurementId: MEASUREMENT_ID });
