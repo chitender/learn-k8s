@@ -9,10 +9,21 @@
   <title>Learn Kubernetes — Interactive Fundamentals to Production</title>
   <link rel="stylesheet" href="./styles.css" />
   <link rel="stylesheet" href="./styles-experience.css" />
+
+  <!-- Google Analytics 4 -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-D46ECK19HJ"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    window.gtag = gtag;
+    gtag('js', new Date());
+    gtag('config', 'G-D46ECK19HJ');
+  </script>
 </head>
 <body>
   <a class="skip-link" href="#main-content">Skip to main content</a>
   <div id="app"></div>
   <script type="module" src="./src/app.js"></script>
+  <script type="module" src="./src/analytics.js"></script>
 </body>
 </html>
