@@ -1,8 +1,6 @@
 export const curriculum = [
   {
-    id: 'foundations',
-    title: '01 · Foundations',
-    description: 'Build the mental model before touching YAML.',
+    id: 'foundations', title: '01 · Foundations', description: 'Build the mental model before touching YAML.',
     lessons: [
       { id: 'why-kubernetes', title: 'Why Kubernetes?', status: 'ready', level: 'Beginner', minutes: 10 },
       { id: 'cluster-architecture', title: 'Cluster architecture', status: 'ready', level: 'Beginner', minutes: 15 },
@@ -10,9 +8,7 @@ export const curriculum = [
     ]
   },
   {
-    id: 'workloads',
-    title: '02 · Workloads',
-    description: 'Pods, controllers, container lifecycle, health and rollout behavior.',
+    id: 'workloads', title: '02 · Workloads', description: 'Pods, controllers, container lifecycle, health and rollout behavior.',
     lessons: [
       { id: 'pods', title: 'Pods & containers', status: 'ready', level: 'Beginner', minutes: 15 },
       { id: 'deployments', title: 'Deployments & ReplicaSets', status: 'ready', level: 'Beginner', minutes: 20 },
@@ -23,9 +19,7 @@ export const curriculum = [
     ]
   },
   {
-    id: 'scheduling-resources',
-    title: '03 · Scheduling & Resources',
-    description: 'Understand placement, requests, limits, QoS and the scheduler pipeline behind placement decisions.',
+    id: 'scheduling-resources', title: '03 · Scheduling & Resources', description: 'Understand placement, requests, limits, QoS and the scheduler pipeline behind placement decisions.',
     lessons: [
       { id: 'cpu-scheduling', title: 'CPU scheduling & throttling', status: 'ready', level: 'Beginner → Intermediate', minutes: 30 },
       { id: 'memory', title: 'Memory requests, limits & OOM', status: 'ready', level: 'Beginner', minutes: 25 },
@@ -37,9 +31,7 @@ export const curriculum = [
     ]
   },
   {
-    id: 'networking',
-    title: '04 · Networking',
-    description: 'Traffic flow from Pod network plumbing to Service, EndpointSlice and Ingress.',
+    id: 'networking', title: '04 · Networking', description: 'Traffic flow from Pod network plumbing to Service, EndpointSlice and Ingress.',
     lessons: [
       { id: 'pod-networking', title: 'Pod networking', status: 'ready', level: 'Beginner', minutes: 20 },
       { id: 'cni-deep-dive', title: 'CNI deep dive', status: 'ready', level: 'Intermediate → Advanced', minutes: 28 },
@@ -49,9 +41,7 @@ export const curriculum = [
     ]
   },
   {
-    id: 'storage',
-    title: '05 · Storage',
-    description: 'Volumes, PVs, PVCs, StorageClasses and CSI node/controller paths.',
+    id: 'storage', title: '05 · Storage', description: 'Volumes, PVs, PVCs, StorageClasses and CSI node/controller paths.',
     lessons: [
       { id: 'volumes', title: 'Volumes & persistence', status: 'ready', level: 'Beginner', minutes: 20 },
       { id: 'pv-pvc', title: 'PV, PVC & StorageClass', status: 'ready', level: 'Beginner', minutes: 25 },
@@ -59,9 +49,7 @@ export const curriculum = [
     ]
   },
   {
-    id: 'operations',
-    title: '06 · Operations',
-    description: 'Troubleshooting, observability, autoscaling, node survival and incident diagnosis.',
+    id: 'operations', title: '06 · Operations', description: 'Troubleshooting, observability, autoscaling, node survival and incident diagnosis.',
     lessons: [
       { id: 'kubectl-debug', title: 'kubectl troubleshooting', status: 'ready', level: 'Beginner', minutes: 25 },
       { id: 'events-logs-metrics', title: 'Events, logs & metrics', status: 'ready', level: 'Beginner', minutes: 25 },
@@ -71,9 +59,7 @@ export const curriculum = [
     ]
   },
   {
-    id: 'configuration-access',
-    title: '07 · Configuration & Access',
-    description: 'Inject configuration safely, isolate teams, and control workload/API identity.',
+    id: 'configuration-access', title: '07 · Configuration & Access', description: 'Inject configuration safely, isolate teams, and control workload/API identity.',
     lessons: [
       { id: 'configmaps-secrets', title: 'ConfigMaps & Secrets', status: 'ready', level: 'Beginner', minutes: 20 },
       { id: 'namespaces-rbac', title: 'Namespaces & RBAC', status: 'ready', level: 'Beginner → Intermediate', minutes: 25 },
@@ -82,9 +68,7 @@ export const curriculum = [
     ]
   },
   {
-    id: 'workload-patterns',
-    title: '08 · Workload Patterns',
-    description: 'Choose the right controller for finite work, stateful systems, and node-local agents.',
+    id: 'workload-patterns', title: '08 · Workload Patterns', description: 'Choose the right controller for finite work, stateful systems, and node-local agents.',
     lessons: [
       { id: 'jobs-cronjobs', title: 'Jobs & CronJobs', status: 'ready', level: 'Beginner', minutes: 20 },
       { id: 'statefulsets', title: 'StatefulSets', status: 'ready', level: 'Intermediate', minutes: 25 },
@@ -92,9 +76,7 @@ export const curriculum = [
     ]
   },
   {
-    id: 'reliability-security',
-    title: '09 · Reliability & Security',
-    description: 'Protect availability during change and apply workload/network security guardrails.',
+    id: 'reliability-security', title: '09 · Reliability & Security', description: 'Protect availability during change and apply workload/network security guardrails.',
     lessons: [
       { id: 'pdb-termination', title: 'PDBs & graceful termination', status: 'ready', level: 'Intermediate', minutes: 25 },
       { id: 'networkpolicy', title: 'NetworkPolicy', status: 'ready', level: 'Intermediate', minutes: 25 },
@@ -102,32 +84,33 @@ export const curriculum = [
     ]
   },
   {
-    id: 'packaging-capstone',
-    title: '10 · Packaging & Capstone',
-    description: 'Understand packaging, then assemble the fundamentals into a production-style workload.',
+    id: 'packaging-capstone', title: '10 · Packaging & Capstone', description: 'Understand packaging, then assemble the fundamentals into a production-style workload.',
     lessons: [
       { id: 'helm', title: 'Helm chart mental model', status: 'ready', level: 'Beginner → Intermediate', minutes: 20 },
       { id: 'production-capstone', title: 'Production app capstone', status: 'ready', level: 'Intermediate', minutes: 35 }
     ]
   },
   {
-    id: 'api-machinery',
-    title: '11 · API Machinery & Extensibility',
-    description: 'Understand how API requests are admitted and how Kubernetes can be extended without changing core Kubernetes.',
+    id: 'api-machinery', title: '11 · API Machinery & Extensibility', description: 'Understand how API requests are admitted and how Kubernetes can be extended without changing core Kubernetes.',
     lessons: [
       { id: 'admission-control', title: 'Admission control & webhooks', status: 'ready', level: 'Intermediate → Advanced', minutes: 28 },
       { id: 'crds-operators', title: 'CRDs & operator pattern', status: 'ready', level: 'Intermediate → Advanced', minutes: 30 }
     ]
   },
   {
-    id: 'control-plane-node-internals',
-    title: '12 · Control Plane & Node Internals',
-    description: 'Trace cluster state from API persistence to node reconciliation and container runtime execution.',
+    id: 'control-plane-node-internals', title: '12 · Control Plane & Node Internals', description: 'Trace cluster state from API persistence to node reconciliation and container runtime execution.',
     lessons: [
       { id: 'apiserver-etcd', title: 'API server & etcd request lifecycle', status: 'ready', level: 'Intermediate → Advanced', minutes: 30 },
       { id: 'leases-leader-election', title: 'Leases & leader election', status: 'ready', level: 'Intermediate', minutes: 24 },
       { id: 'kubelet-internals', title: 'kubelet internals', status: 'ready', level: 'Intermediate → Advanced', minutes: 30 },
       { id: 'cri-runtime', title: 'CRI & container runtime', status: 'ready', level: 'Intermediate → Advanced', minutes: 26 }
+    ]
+  },
+  {
+    id: 'practice-mastery', title: '13 · Practice & Mastery', description: 'Combine concepts under pressure, earn bonus XP, and practice diagnosing the whole cluster.',
+    lessons: [
+      { id: 'challenge-arena', title: 'CKA / SRE challenge arena', status: 'ready', level: 'Beginner → Advanced', minutes: 30 },
+      { id: 'cluster-sandbox', title: 'Whole-cluster sandbox', status: 'ready', level: 'Intermediate → Advanced', minutes: 35 }
     ]
   }
 ];
@@ -179,7 +162,9 @@ export const lessonLoaders = {
   'apiserver-etcd': () => import('./modules/apiserver-etcd.js'),
   'leases-leader-election': () => import('./modules/leases-leader-election.js'),
   'kubelet-internals': () => import('./modules/kubelet-internals.js'),
-  'cri-runtime': () => import('./modules/cri-runtime.js')
+  'cri-runtime': () => import('./modules/cri-runtime.js'),
+  'challenge-arena': () => import('./modules/challenge-arena.js'),
+  'cluster-sandbox': () => import('./modules/cluster-sandbox.js')
 };
 
 export function findLesson(id) {
