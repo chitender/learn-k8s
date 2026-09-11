@@ -1,27 +1,10 @@
 import { incidentsForLesson } from './data/production-incidents.js';
+import { awardChallenge } from './gamification.js';
 import { renderProductionIncidents, bindProductionIncidents } from './ui/production-incidents.js';
 
 function currentLessonId() {
   const match = (window.location.hash || '').match(/^#\/learn\/([a-z0-9-]+)$/);
   return match?.[1] || null;
-}
-
-function awardIncidentXP(key, amount = 40) {
-  try {
-    const solvedKey = 'learn-k8s-challenges-solved';
-    const xpKey = 'learn-k8s-challenge-xp';
-    const solved = new Set(JSON.parse(localStorage.getItem(solvedKey) || '[]'));
-    if (solved.has(key)) return { awarded: 0, total: Number(localStorage.getItem(xpKey) || 0) || 0 };
-    solved.add(key);
-    localStorage.setItem(solvedKey, JSON.stringify([...solved]));
-    const current = Math.max(0, Number(localStorage.getItem(xpKey) || 0) || 0);
-    const award = Math.max(0, Number(amount) || 0);
-    const total = current + award;
-    localStorage.setItem(xpKey, String(total));
-    return { awarded: award, total };
-  } catch {
-    return { awarded: 0, total: 0 };
-  }
 }
 
 function injectIncidentLab() {
@@ -39,7 +22,7 @@ function injectIncidentLab() {
   host.dataset.lessonId = lessonId;
   host.innerHTML = renderProductionIncidents(lessonId);
   lessonRoot.insertAdjacentElement('afterend', host);
-  bindProductionIncidents(host, { lessonId, awardXP: awardIncidentXP });
+  bindProductionIncidents(host, { lessonId, awardXP: awardChallenge });
 }
 
 const app = document.querySelector('#app');
