@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import { curriculum } from '../src/catalog.js';
 import { PRODUCTION_INCIDENTS } from '../src/data/production-incidents.js';
 
@@ -48,6 +49,10 @@ const counts = PRODUCTION_INCIDENTS.reduce((acc, incident) => {
 if (!(counts['Public postmortem'] || counts['Public engineering incident'])) fail('Incident library should include at least one first-party/public engineering incident.');
 if (!counts['Stack Overflow case']) fail('Incident library should include Stack Overflow cases.');
 if (!(counts['Reddit community report'] || counts['Reddit community case'])) fail('Incident library should include Reddit community cases.');
+
+const index = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+if (!index.includes('styles-incidents.css')) fail('index.html does not load styles-incidents.css');
+if (!index.includes('./src/production-incidents-runtime.js')) fail('index.html does not load the production incident runtime');
 
 if (failures.length) {
   console.error(`\nProduction incident validation failed with ${failures.length} issue(s):`);
