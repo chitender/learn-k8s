@@ -34,9 +34,6 @@ jobs:
       STACK_NAME: learn-k8s
       ENABLE_LIVE_LABS: ${{ vars.ENABLE_LIVE_LABS || 'false' }}
       PAID_EXAMS_ENABLED: ${{ vars.PAID_EXAMS_ENABLED || 'false' }}
-      RAZORPAY_KEY_ID: ${{ secrets.RAZORPAY_KEY_ID }}
-      RAZORPAY_KEY_SECRET: ${{ secrets.RAZORPAY_KEY_SECRET }}
-      RAZORPAY_WEBHOOK_SECRET: ${{ secrets.RAZORPAY_WEBHOOK_SECRET }}
 
     steps:
       - name: Checkout
@@ -122,6 +119,10 @@ jobs:
 
       - name: Push GitHub secrets and pricing config to Secrets Manager
         shell: bash
+        env:
+          RAZORPAY_KEY_ID: ${{ secrets.RAZORPAY_KEY_ID }}
+          RAZORPAY_KEY_SECRET: ${{ secrets.RAZORPAY_KEY_SECRET }}
+          RAZORPAY_WEBHOOK_SECRET: ${{ secrets.RAZORPAY_WEBHOOK_SECRET }}
         run: |
           set -euo pipefail
           python3 - <<'PY' >/tmp/learn-k8s-secret.json
