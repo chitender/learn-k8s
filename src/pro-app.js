@@ -63,6 +63,7 @@ function catalogCard(catalog) {
     <div class="eyebrow">${catalog.exam_type} · ${catalog.baseline}</div>
     <h3>${catalog.title}</h3>
     <p>${domainSummary}</p>
+    ${catalog.guide_url ? `<p><a class="resource-link" href="${catalog.guide_url}" target="_blank" rel="noreferrer">Official exam guide ↗</a></p>` : ''}
     <button
       class="chip-btn start"
       data-exam="${catalog.exam_type}"
