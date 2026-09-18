@@ -232,7 +232,7 @@ resource "aws_iam_role_policy" "api" {
       },
       {
         Effect   = "Allow"
-        Action   = ["ssm:SendCommand", "ssm:DescribeInstanceInformation"]
+        Action   = ["ssm:SendCommand", "ssm:DescribeInstanceInformation", "ssm:GetCommandInvocation"]
         Resource = "*"
       },
       {
@@ -330,7 +330,7 @@ locals {
     "POST /payments/order",
     "POST /payments/verify",
     "POST /exams/start",
-    "GET /exams/session/{session_id}"
+    "GET /exams/session/{session_id}",\n    "POST /exams/session/{session_id}/submit"
   ])
 }
 
