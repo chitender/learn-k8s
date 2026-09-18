@@ -865,6 +865,53 @@ def maybe_activate_session(item):
     )
 
 
+def restore_failed_session_credit(item, reason):
+    session_id = item["session_id"]["S"]
+    uid = item["user_id"]["S"]
+    instance_id = item.get("instance_id", {}).get("S")
+    now = int(time.time())
+
+    try:
+        ddb.transact_write_items(
+            TransactItems=[
+                {
+                    "Update": {
+                        "TableName": SESSIONS_TABLE,
+                        "Key": {"session_id": {"S": session_id}},
+                        "UpdateExpression": "SET #s=:failed, failure_reason=:reason, credit_restored=:yes, failed_at=:ts",
+                        "ConditionExpression": "attribute_not_exists(credit_restored)",
+                        "ExpressionAttributeNames": {"#s": "status"},
+                        "ExpressionAttributeValues": {
+                            ":failed": {"S": "failed"},
+                            ":reason": {"S": reason[:500]},
+                            ":yes": {"BOOL": True},
+                            ":ts": {"N": str(now)},
+                        },
+                    }
+                },
+                {
+                    "Update": {
+                        "TableName": ENTITLEMENTS_TABLE,
+                        "Key": {"user_id": {"S": uid}},
+                        "UpdateExpression": "ADD exam_credits :one",
+                        "ExpressionAttributeValues": {":one": {"N": "1"}},
+                    }
+                },
+            ]
+        )
+    except ddb.exceptions.TransactionCanceledException:
+        return False
+
+    if instance_id:
+        try:
+            ec2.terminate_instances(InstanceIds=[instance_id])
+        except Exception:
+            pass
+
+    remove_gateway_route(session_id)
+    return True
+
+
 def get_session(event, session_id):
     uid = user_id(event)
     item = ddb.get_item(
@@ -880,6 +927,20 @@ def get_session(event, session_id):
         maybe_activate_session(item)
     except Exception:
         pass
+
+    item = ddb.get_item(
+        TableName=SESSIONS_TABLE,
+        Key={"session_id": {"S": session_id}},
+        ConsistentRead=True,
+    ).get("Item") or item
+
+    if item.get("status", {}).get("S") == "provisioning":
+        started_at = int(item.get("started_at", {}).get("N", "0"))
+        if started_at and int(time.time()) - started_at > 15 * 60:
+            restore_failed_session_credit(
+                item,
+                "Lab provisioning exceeded the 15 minute readiness window.",
+            )
 
     payload = session_payload(session_id, uid)
     if payload.get("statusCode"):
