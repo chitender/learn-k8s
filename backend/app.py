@@ -9,7 +9,7 @@ import time
 import urllib.request
 import urllib.error
 import uuid
-from exam_blueprints import BLUEPRINTS
+from exam_blueprints import BLUEPRINTS, public_tasks
 
 ddb = boto3.client("dynamodb")
 sm = boto3.client("secretsmanager")
@@ -210,7 +210,7 @@ curl -L -o /usr/local/bin/kind https://kind.sigs.k8s.io/dl/v0.33.0/kind-linux-am
 chmod +x /usr/local/bin/kind
 curl -L -o /usr/local/bin/ttyd https://github.com/tsl0922/ttyd/releases/download/1.7.7/ttyd.x86_64
 chmod +x /usr/local/bin/ttyd
-sudo -iu candidate kind create cluster --name exam --wait 180s
+sudo -iu candidate kind create cluster --name exam --wait 180s\nsudo -iu candidate kubectl create namespace exam
 cat >/etc/systemd/system/ttyd.service <<'EOF'
 [Unit]
 After=network-online.target docker.service
@@ -299,7 +299,7 @@ def session_payload(session_id, uid):
     return {
         "session_id":session_id,"exam_type":exam_type,"status":status,
         "expires_at":int(item["expires_at"]["N"]),
-        "tasks":BLUEPRINTS[exam_type],
+        "tasks":public_tasks(exam_type),
         "terminal_url":terminal_url,
         "terminal_username":"candidate" if terminal_url else None,
         "terminal_password":item.get("terminal_password",{}).get("S") if terminal_url else None,
@@ -341,6 +341,81 @@ def get_session(event, session_id):
     payload = session_payload(session_id, uid)
     if payload.get("statusCode"): return response(payload["statusCode"],{"message":payload["message"]})
     return response(200,payload)
+
+def submit_exam(event, session_id):
+    uid = user_id(event)
+    item = ddb.get_item(TableName=SESSIONS_TABLE,Key={"session_id":{"S":session_id}},ConsistentRead=True).get("Item")
+    if not item or item.get("user_id",{}).get("S") != uid:
+        return response(404,{"message":"Session not found."})
+    if item.get("status",{}).get("S") != "ready":
+        return response(409,{"message":"Session is not ready for grading."})
+
+    instance_id = item.get("instance_id",{}).get("S")
+    exam_type = item["exam_type"]["S"]
+    if not instance_id:
+        return response(409,{"message":"No live worker is attached to this session."})
+
+    lines = []
+    for task in BLUEPRINTS[exam_type]:
+        verify = task["verify"].replace("'", "'\\''")
+        lines.append(f"if bash -lc '{verify}'; then echo '{task['id']}|1'; else echo '{task['id']}|0'; fi")
+    command = "\n".join(lines)
+
+    sent = ssm.send_command(
+        InstanceIds=[instance_id],
+        DocumentName="AWS-RunShellScript",
+        Parameters={"commands":[command]},
+        TimeoutSeconds=20,
+    )
+    command_id = sent["Command"]["CommandId"]
+    output = ""
+    for _ in range(12):
+        time.sleep(1)
+        try:
+            inv = ssm.get_command_invocation(CommandId=command_id, InstanceId=instance_id)
+            if inv.get("Status") in ("Success","Failed","TimedOut","Cancelled"):
+                output = inv.get("StandardOutputContent","")
+                break
+        except ssm.exceptions.InvocationDoesNotExist:
+            pass
+
+    results = {}
+    for line in output.splitlines():
+        if "|" in line:
+            task_id, ok = line.strip().split("|",1)
+            results[task_id] = ok == "1"
+
+    score = sum(task["weight"] for task in BLUEPRINTS[exam_type] if results.get(task["id"]))
+    now = int(time.time())
+    ddb.update_item(
+        TableName=SESSIONS_TABLE,
+        Key={"session_id":{"S":session_id}},
+        UpdateExpression="SET #s=:done, score=:score, completed_at=:ts",
+        ExpressionAttributeNames={"#s":"status"},
+        ExpressionAttributeValues={":done":{"S":"completed"},":score":{"N":str(score)},":ts":{"N":str(now)}},
+    )
+
+    try:
+        ec2.terminate_instances(InstanceIds=[instance_id])
+    except Exception:
+        pass
+    if LAB_GATEWAY_INSTANCE_ID:
+        try:
+            ssm.send_command(
+                InstanceIds=[LAB_GATEWAY_INSTANCE_ID],
+                DocumentName="AWS-RunShellScript",
+                Parameters={"commands":[f"rm -f /etc/nginx/lab-routes/{session_id}.conf; nginx -t && systemctl reload nginx"]},
+            )
+        except Exception:
+            pass
+
+    return response(200,{
+        "session_id":session_id,
+        "exam_type":exam_type,
+        "score":score,
+        "max_score":100,
+        "results":[{"id":task["id"],"title":task["title"],"weight":task["weight"],"passed":bool(results.get(task["id"]))} for task in BLUEPRINTS[exam_type]],
+    })
 
 def cleanup():
     now = int(time.time())
