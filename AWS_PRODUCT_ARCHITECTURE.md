@@ -1,128 +1,173 @@
 # Learn Kubernetes — AWS + Paid Exam Architecture
 
-## Goal
+## Product shape
 
-Move the public learning site off GitHub Pages to AWS with the lowest practical always-on cost, then add paid CKAD and CKS exam-simulator products.
-
-> The current CNCF security certification is **CKS**. This design treats the earlier "CKSI" wording as CKS.
-
-## Architecture
+The site moves from GitHub Pages to AWS while keeping the always-on footprint small:
 
 ```text
 GitHub Actions (OIDC)
         |
         v
-S3 (private) ---> CloudFront ---> Browser
-                         |
-                         +---- free learning content
-                         |
-                         +---- pro.html
-                                  |
-                                  v
-                              Cognito
-                                  |
-                                  v
-                         API Gateway HTTP API
-                                  |
-                                  v
-                                Lambda
-                         /        |         \
-                   DynamoDB    Razorpay     EC2
-                   credits     Orders       live labs
-                   sessions    webhooks
-
-Live exam path
---------------
-CloudFront (lab distribution)
+CloudFormation
         |
-        v
-small gateway EC2 (nginx, always-on only when live labs enabled)
+        +--> S3 (private) --> CloudFront --> free learning site / Pro UI
         |
-        +------> dedicated CKAD/CKS worker EC2
-                 kind cluster + kubectl + ttyd
-                 auto-terminate at exam TTL
+        +--> Cognito --> API Gateway HTTP API --> Lambda
+                                             |       |
+                                             |       +--> DynamoDB
+                                             |       +--> Secrets Manager
+                                             |       +--> Razorpay
+                                             |
+                                             +--> optional live exam infrastructure
+                                                      |
+                                                      +--> t4g.nano nginx gateway
+                                                      +--> one dedicated EC2 worker per attempt
 ```
 
-## Cost model
+No EKS, ECS, RDS, NAT Gateway or ALB is required for the normal product path.
 
-The normal website does **not** need ECS, EKS, RDS or an ALB.
+## GitHub Actions -> Secrets Manager
 
-Always-on product layer:
-- S3 for static files
-- CloudFront CDN
-- Cognito user pool
-- API Gateway HTTP API
-- Lambda
-- DynamoDB on-demand
-- Secrets Manager for Razorpay secrets
+GitHub Actions reads deployment variables/secrets and pushes one JSON configuration document into the CloudFormation-created secret:
 
-These are request-based/serverless services and should remain inexpensive at small traffic volumes.
+- `RAZORPAY_KEY_ID`
+- `RAZORPAY_KEY_SECRET`
+- `RAZORPAY_WEBHOOK_SECRET`
+- `PAID_EXAMS_ENABLED`
+- `ENABLE_LIVE_LABS`
+- pricing bundle definitions
 
-The expensive part is the real exam lab. It is deliberately separated and created only for a paid exam attempt. A dedicated EC2 worker is the safest model for CKS because the learner needs privileged cluster/system access. Sessions have a strict TTL and are terminated automatically.
+The Lambda reads the secret through its IAM role. Razorpay secrets are not stored in CloudFormation parameters, stack outputs, the static frontend or repository.
 
-## Paid products
+## Plans
 
-Initial server-side product IDs:
+One exam credit starts one CKAD or CKS simulator session.
 
-- `ckad_attempt` — one CKAD live simulator attempt
-- `cks_attempt` — one CKS live simulator attempt
+| Plan | Credits | Price | Approx price/attempt |
+| --- | ---: | ---: | ---: |
+| Free | 2 | ₹0 | trial |
+| Bronze | 5 | ₹699 | ₹140 |
+| Silver | 10 | ₹1,379 | ₹138 |
+| Gold | 20 | ₹2,699 | ₹135 |
 
-Pricing is an infrastructure variable, not trusted from the browser.
+The working economic assumption is ₹100 infrastructure cost for a candidate who consumes the full two-hour lab. These prices represent roughly a 30–40% cost-plus markup before taxes, support, refunds, fraud and payment-gateway fees. Actual AWS usage must be measured and the bundle prices adjusted from configuration.
 
-## Payment security
+Free credits are granted once when a verified Cognito user first loads their entitlement record. Paid bundle credits are additive and can be used on either CKAD or CKS.
 
-Razorpay flow:
+## Exam catalogues
 
-1. Authenticated browser requests `POST /payments/order` with a product ID.
-2. Lambda selects the server-side amount and creates a Razorpay Order.
-3. Checkout receives only the resulting order ID and public Razorpay key ID.
-4. Browser sends payment/order/signature to `POST /payments/verify`.
-5. Lambda verifies the HMAC signature and fetches Razorpay payment/order state before granting credits.
-6. Razorpay webhooks provide the durable asynchronous source of truth for late payment updates.
-7. Entitlement updates are idempotent in DynamoDB.
+The simulator never uses copied or recalled live certification questions.
 
-Razorpay key secret and webhook secret never enter the browser or GitHub repository.
+The task bank is original Learn Kubernetes material mapped to the current public Linux Foundation/CNCF exam competencies.
 
-## CI/CD
+Current catalogue structure:
 
-GitHub Actions authenticates to AWS through OIDC. No long-lived AWS access keys are stored in GitHub.
+- 4 CKAD forms
+- 4 CKS forms
+- official domain weights are preserved inside every form
+- the union of forms covers every public competency represented in `backend/exam_catalog.py`
+- CI validates competency coverage, task IDs and 100% weighting
 
-Required GitHub repository variables/secrets:
+The current certification pages list both exams as two-hour performance-based tests and currently identify Kubernetes v1.35 as the exam environment baseline. The learning site can independently continue to teach newer Kubernetes releases.
 
-### Variables
-- `AWS_REGION` (recommended: `ap-south-1`)
+## CKAD public domains
+
+- Application Design and Build — 20%
+- Application Deployment — 20%
+- Application Observability and Maintenance — 15%
+- Application Environment, Configuration and Security — 25%
+- Services and Networking — 20%
+
+## CKS public domains
+
+The simulator follows the current Linux Foundation page:
+
+- Cluster Setup — 15%
+- Cluster Hardening — 15%
+- System Hardening — 10%
+- Minimize Microservice Vulnerabilities — 20%
+- Supply Chain Security — 20%
+- Monitoring, Logging and Runtime Security — 20%
+
+## Session lifecycle
+
+```text
+verified user
+   |
+   | 1 exam credit
+   v
+select CKAD/CKS catalogue
+   |
+   v
+DynamoDB transaction consumes credit + creates session
+   |
+   v
+dedicated x86 EC2 worker
+   |
+   +--> Docker
+   +--> kind v0.32
+   +--> Kubernetes v1.35.5 node image
+   +--> kubectl
+   +--> Helm
+   +--> ttyd browser terminal
+   |
+   v
+candidate solves tasks
+   |
+   v
+submit
+   |
+   v
+Lambda runs server-side verifiers through SSM
+   |
+   v
+weighted score
+   |
+   +--> terminate worker
+   +--> remove nginx route
+```
+
+Expired sessions are cleaned every five minutes.
+
+## Razorpay flow
+
+1. Browser submits only a plan ID.
+2. Lambda looks up the price and credit count from Secrets Manager.
+3. Lambda creates a Razorpay Order.
+4. Browser opens Razorpay Checkout using the returned order/key ID.
+5. Lambda verifies the HMAC signature.
+6. Lambda queries Razorpay to require captured payment + paid order state.
+7. A DynamoDB transaction grants credits exactly once.
+8. Signed Razorpay webhooks provide asynchronous recovery for delayed events.
+
+## Deployment
+
+GitHub Actions uses AWS OIDC temporary credentials.
+
+Required repository variables:
+
 - `AWS_ROLE_ARN`
-- `AWS_TF_STATE_BUCKET`
-- `AWS_TF_STATE_KEY` (optional, default `learn-k8s/prod.tfstate`)
+- `AWS_REGION` (default `ap-south-1`)
+- `PAID_EXAMS_ENABLED` (default false)
+- `ENABLE_LIVE_LABS` (default false)
 
-### Secrets
-- `RAZORPAY_KEY_ID` (public identifier, secret storage is still convenient)
+Required repository secrets:
 
-The Razorpay key secret and webhook secret should be inserted directly into the AWS Secrets Manager secret created by Terraform.
+- `RAZORPAY_KEY_ID`
+- `RAZORPAY_KEY_SECRET`
+- `RAZORPAY_WEBHOOK_SECRET`
 
-## Migration sequence
+The deployment workflow:
 
-1. Bootstrap GitHub OIDC role and Terraform state bucket.
-2. Configure repository variables.
-3. Run the AWS deployment workflow manually.
-4. Validate the CloudFront URL.
-5. Configure Razorpay test-mode credentials and webhook.
-6. Enable paid exam checkout only after the live lab engine is validated.
-7. Point the final custom domain to CloudFront.
-8. Disable the GitHub Pages deployment workflow after cutover.
+1. validates the learning site and exam catalogue
+2. compiles the Python backend
+3. validates the CloudFormation template
+4. creates/reuses a private Lambda artifact bucket
+5. uploads the backend ZIP
+6. deploys CloudFormation
+7. writes GitHub-held runtime configuration into Secrets Manager
+8. builds the static site from stack outputs
+9. syncs `dist/` to private S3
+10. invalidates CloudFront
 
-## Exam realism
-
-CKAD and CKS are performance-based command-line exams. A realistic paid product therefore needs:
-
-- two-hour timer
-- browser terminal
-- real Kubernetes API
-- task list with weighted scoring
-- namespace/context instructions
-- reset/reconnect handling
-- automatic grading
-- strict session expiry
-- no solution reveal until submission/expiry
-
-The frontend exam cockpit is built independently from the worker implementation so we can improve the lab AMI and grader without changing billing.
+GitHub Pages remains a static fallback until the AWS URL is validated and cutover is complete.
