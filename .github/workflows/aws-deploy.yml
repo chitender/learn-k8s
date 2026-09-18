@@ -1,0 +1,116 @@
+name: Deploy Learn Kubernetes to AWS
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'index.html'
+      - 'pro.html'
+      - 'styles*.css'
+      - 'src/**'
+      - 'backend/**'
+      - 'infra/**'
+      - 'scripts/build-site.mjs'
+      - 'package.json'
+      - '.github/workflows/aws-deploy.yml'
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: learn-k8s-aws-prod
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: ${{ vars.AWS_ROLE_ARN != '' && vars.AWS_TF_STATE_BUCKET != '' }}
+    runs-on: ubuntu-latest
+    environment: production
+
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION || 'ap-south-1' }}
+      TF_VAR_aws_region: ${{ vars.AWS_REGION || 'ap-south-1' }}
+      TF_VAR_razorpay_key_id: ${{ secrets.RAZORPAY_KEY_ID }}
+      TF_VAR_paid_exams_enabled: ${{ vars.PAID_EXAMS_ENABLED || 'false' }}
+      TF_VAR_enable_live_labs: ${{ vars.ENABLE_LIVE_LABS || 'false' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Validate learning site
+        run: npm run validate
+
+      - name: Compile backend
+        run: python3 -m py_compile backend/app.py backend/exam_blueprints.py
+
+      - name: Configure AWS credentials through OIDC
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: learn-k8s-github-deploy
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.13.3'
+          terraform_wrapper: false
+
+      - name: Terraform format check
+        working-directory: infra/terraform
+        run: terraform fmt -check -recursive
+
+      - name: Terraform init
+        working-directory: infra/terraform
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ vars.AWS_TF_STATE_BUCKET }}" \
+            -backend-config="key=${{ vars.AWS_TF_STATE_KEY || 'learn-k8s/prod.tfstate' }}" \
+            -backend-config="region=${{ env.AWS_REGION }}" \
+            -backend-config="use_lockfile=true"
+
+      - name: Terraform validate
+        working-directory: infra/terraform
+        run: terraform validate
+
+      - name: Terraform apply
+        working-directory: infra/terraform
+        run: terraform apply -auto-approve
+
+      - name: Export runtime outputs
+        working-directory: infra/terraform
+        run: |
+          echo "LEARN_K8S_API_URL=$(terraform output -raw api_url)" >> "$GITHUB_ENV"
+          echo "COGNITO_CLIENT_ID=$(terraform output -raw cognito_client_id)" >> "$GITHUB_ENV"
+          echo "COGNITO_USER_POOL_ID=$(terraform output -raw cognito_user_pool_id)" >> "$GITHUB_ENV"
+          echo "SITE_BUCKET=$(terraform output -raw site_bucket)" >> "$GITHUB_ENV"
+          echo "CF_DISTRIBUTION_ID=$(terraform output -raw cloudfront_distribution_id)" >> "$GITHUB_ENV"
+          echo "SITE_URL=$(terraform output -raw site_url)" >> "$GITHUB_ENV"
+
+      - name: Build static site
+        env:
+          RAZORPAY_KEY_ID: ${{ secrets.RAZORPAY_KEY_ID }}
+          PAID_EXAMS_ENABLED: ${{ vars.PAID_EXAMS_ENABLED || 'false' }}
+          LIVE_LABS_ENABLED: ${{ vars.ENABLE_LIVE_LABS || 'false' }}
+        run: npm run build
+
+      - name: Upload site to S3
+        run: aws s3 sync dist/ "s3://$SITE_BUCKET/" --delete --only-show-errors
+
+      - name: Invalidate CloudFront
+        run: aws cloudfront create-invalidation --distribution-id "$CF_DISTRIBUTION_ID" --paths '/*'
+
+      - name: Deployment summary
+        run: |
+          echo "AWS site: $SITE_URL" >> "$GITHUB_STEP_SUMMARY"
+          echo "API: $LEARN_K8S_API_URL" >> "$GITHUB_STEP_SUMMARY"
+          echo "Paid exams enabled: ${{ vars.PAID_EXAMS_ENABLED || 'false' }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Live labs enabled: ${{ vars.ENABLE_LIVE_LABS || 'false' }}" >> "$GITHUB_STEP_SUMMARY"
