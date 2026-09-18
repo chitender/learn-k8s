@@ -1,0 +1,26 @@
+BLUEPRINTS = {
+    "CKAD": [
+        {"id":"ckad-1","title":"Multi-container Pod with shared volume","weight":8},
+        {"id":"ckad-2","title":"Deployment rollout and rollback","weight":10},
+        {"id":"ckad-3","title":"ConfigMap and Secret injection","weight":10},
+        {"id":"ckad-4","title":"Readiness and liveness probes","weight":10},
+        {"id":"ckad-5","title":"Service and NetworkPolicy","weight":12},
+        {"id":"ckad-6","title":"Job / CronJob troubleshooting","weight":10},
+        {"id":"ckad-7","title":"Resource requests and limits","weight":10},
+        {"id":"ckad-8","title":"Persistent volume claim usage","weight":10},
+        {"id":"ckad-9","title":"SecurityContext and ServiceAccount","weight":10},
+        {"id":"ckad-10","title":"Debug a broken application","weight":10},
+    ],
+    "CKS": [
+        {"id":"cks-1","title":"RBAC least privilege","weight":10},
+        {"id":"cks-2","title":"Pod Security Standards","weight":10},
+        {"id":"cks-3","title":"NetworkPolicy isolation","weight":10},
+        {"id":"cks-4","title":"Secure workload configuration","weight":10},
+        {"id":"cks-5","title":"Image and supply-chain controls","weight":10},
+        {"id":"cks-6","title":"Audit and runtime detection","weight":10},
+        {"id":"cks-7","title":"Kubelet and node hardening","weight":10},
+        {"id":"cks-8","title":"API server security controls","weight":10},
+        {"id":"cks-9","title":"Secrets and service account tokens","weight":10},
+        {"id":"cks-10","title":"Investigate a compromised workload","weight":10},
+    ],
+}
