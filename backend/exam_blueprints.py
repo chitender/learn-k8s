@@ -49,8 +49,8 @@ BLUEPRINTS = {
         },
         {
             "id":"cks-5","title":"ServiceAccount token exposure","weight":20,
-            "prompt":"Create Pod token-safe in namespace exam using busybox:1.36 and command sleep 3600, with automountServiceAccountToken explicitly disabled.",
-            "verify":"test \"$(kubectl -n exam get pod token-safe -o jsonpath='{.spec.automountServiceAccountToken}')\" = false"
+            "prompt":"Create namespace token-exam and Pod token-safe in it using busybox:1.36 with command sleep 3600. Set automountServiceAccountToken explicitly to false.",
+            "verify":"test \"$(kubectl -n token-exam get pod token-safe -o jsonpath='{.spec.automountServiceAccountToken}')\" = false"
         },
     ],
 }
