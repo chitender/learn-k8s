@@ -1,1 +1,19 @@
-terraform {\n  required_version = ">= 1.8.0"\n  backend "s3" {}\n\n  required_providers {\n    aws = {\n      source  = "hashicorp/aws"\n      version = ">= 5.70, < 7.0"\n    }\n    archive = {\n      source  = "hashicorp/archive"\n      version = ">= 2.4"\n    }\n  }\n}\n\nprovider "aws" {\n  region = var.aws_region\n}\n
+terraform {
+  required_version = ">= 1.8.0"
+  backend "s3" {}
+
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = ">= 5.70, < 7.0"
+    }
+    archive = {
+      source  = "hashicorp/archive"
+      version = ">= 2.4"
+    }
+  }
+}
+
+provider "aws" {
+  region = var.aws_region
+}
