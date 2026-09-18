@@ -16,7 +16,6 @@ const cfg = {
   awsRegion: process.env.AWS_REGION || 'ap-south-1',
   cognitoClientId: process.env.COGNITO_CLIENT_ID || '',
   cognitoUserPoolId: process.env.COGNITO_USER_POOL_ID || '',
-  razorpayKeyId: process.env.RAZORPAY_KEY_ID || '',
   paidExamsEnabled: process.env.PAID_EXAMS_ENABLED === 'true',
   liveLabsEnabled: process.env.LIVE_LABS_ENABLED === 'true'
 };
