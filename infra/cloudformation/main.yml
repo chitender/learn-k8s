@@ -251,8 +251,15 @@ Resources:
                 Action: iam:PassRole
                 Resource: !GetAtt LabWorkerRole.Arn
 
+  ApiLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${AppName}-api'
+      RetentionInDays: 14
+
   ApiFunction:
     Type: AWS::Lambda::Function
+    DependsOn: ApiLogGroup
     Properties:
       FunctionName: !Sub '${AppName}-api'
       Runtime: python3.13
