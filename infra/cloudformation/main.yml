@@ -224,7 +224,6 @@ Resources:
                   - dynamodb:GetItem
                   - dynamodb:PutItem
                   - dynamodb:UpdateItem
-                  - dynamodb:TransactWriteItems
                   - dynamodb:Scan
                 Resource:
                   - !GetAtt EntitlementsTable.Arn
