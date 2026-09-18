@@ -22,3 +22,27 @@ jobs:
 
       - name: Validate curriculum and JavaScript
         run: npm run validate
+
+      - name: Build static site
+        run: npm run build
+
+      - name: Compile backend
+        run: python3 -m py_compile backend/app.py backend/exam_blueprints.py
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.16.3'
+          terraform_wrapper: false
+
+      - name: Terraform format check
+        working-directory: infra/terraform
+        run: terraform fmt -check -recursive
+
+      - name: Terraform init without backend
+        working-directory: infra/terraform
+        run: terraform init -backend=false
+
+      - name: Terraform validate
+        working-directory: infra/terraform
+        run: terraform validate
