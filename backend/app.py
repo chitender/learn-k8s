@@ -305,6 +305,29 @@ def session_payload(session_id, uid):
         "terminal_password":item.get("terminal_password",{}).get("S") if terminal_url else None,
     }
 
+def worker_terminal_ready(instance_id):
+    try:
+        sent = ssm.send_command(
+            InstanceIds=[instance_id],
+            DocumentName="AWS-RunShellScript",
+            Parameters={"commands":["curl -fsS --max-time 2 http://localhost:7681/ >/dev/null"]},
+            TimeoutSeconds=10,
+        )
+        command_id = sent["Command"]["CommandId"]
+        for _ in range(5):
+            time.sleep(1)
+            try:
+                inv = ssm.get_command_invocation(CommandId=command_id, InstanceId=instance_id)
+                if inv.get("Status") == "Success":
+                    return True
+                if inv.get("Status") in ("Failed","TimedOut","Cancelled"):
+                    return False
+            except ssm.exceptions.InvocationDoesNotExist:
+                pass
+    except Exception:
+        return False
+    return False
+
 def maybe_activate_session(item):
     if item.get("status",{}).get("S") != "provisioning" or not ENABLE_LIVE_LABS:
         return
