@@ -79,6 +79,23 @@ jobs:
             aws s3api put-public-access-block               --bucket "${ARTIFACT_BUCKET}"               --public-access-block-configuration               BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
           fi
 
+          cat >/tmp/artifact-lifecycle.json <<'JSON'
+          {
+            "Rules": [
+              {
+                "ID": "expire-lambda-artifacts",
+                "Status": "Enabled",
+                "Filter": {"Prefix": "lambda/"},
+                "Expiration": {"Days": 30}
+              }
+            ]
+          }
+          JSON
+          aws s3api put-bucket-lifecycle-configuration \
+            --bucket "${ARTIFACT_BUCKET}" \
+            --lifecycle-configuration file:///tmp/artifact-lifecycle.json
+          rm -f /tmp/artifact-lifecycle.json
+
       - name: Package Lambda
         shell: bash
         run: |
