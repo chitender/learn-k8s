@@ -11,6 +11,7 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -22,3 +23,17 @@ jobs:
 
       - name: Validate curriculum and JavaScript
         run: npm run validate
+
+      - name: Build static site
+        run: npm run build
+
+      - name: Compile backend and validate exam catalogues
+        run: |
+          python3 -m py_compile backend/app.py backend/exam_catalog.py backend/validate_catalog.py
+          PYTHONPATH=backend python3 backend/validate_catalog.py
+
+      - name: Install CloudFormation linter
+        run: python3 -m pip install --quiet cfn-lint
+
+      - name: Validate CloudFormation
+        run: cfn-lint infra/cloudformation/main.yml

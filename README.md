@@ -61,7 +61,7 @@ Helm is deliberately presented as an ecosystem packaging tool rather than a Kube
 
 ## Learning experience
 
-The application stays static and backend-free while behaving like a learning product:
+The free learning experience remains static-first while the optional Pro exam product uses AWS for accounts, payments, credits and live Kubernetes sessions:
 
 - **100 XP per completed lesson** plus one-time challenge bonus XP
 - six ranks from **Pod Explorer** to **Control Plane Sage**
@@ -74,7 +74,7 @@ The application stays static and backend-free while behaving like a learning pro
 - route-specific page titles, keyboard focus, skip navigation and reduced-motion support
 - a searchable **Kubernetes glossary**
 - per-lesson links to the official source used for validation
-- no account, tracking backend, or server-side learner profile; progress stays in `localStorage`
+- free lesson progress stays in `localStorage`; Pro exam accounts/credits are stored separately in Cognito and DynamoDB
 
 ## Learning tracks
 
@@ -159,11 +159,20 @@ Important assumptions and boundaries:
 ```text
 learn-k8s/
 ├── index.html
+├── pro.html                     # paid CKAD/CKS simulator UI
 ├── styles.css
 ├── styles-experience.css
+├── styles-pro.css
 ├── package.json
+├── backend/
+│   ├── app.py                   # payments, credits, sessions, worker lifecycle, grading
+│   ├── exam_catalog.py          # CKAD/CKS task bank + catalogue forms
+│   └── validate_catalog.py
+├── infra/cloudformation/
+│   └── main.yml                 # AWS product infrastructure
 ├── scripts/
-│   └── validate.mjs             # zero-dependency curriculum/syntax integrity validation
+│   ├── build-site.mjs
+│   └── validate.mjs             # curriculum/syntax integrity validation
 ├── src/
 │   ├── app.js                   # shell, routing, pages and lesson loading
 │   ├── catalog.js               # curriculum + loader manifest
@@ -239,7 +248,26 @@ npm run validate
 
 ## Deploy
 
-GitHub Pages is deployed through GitHub Actions. A push to `main` runs the same validation gate first, then configures Pages, uploads the static artifact, and deploys it.
+The production target is AWS. `.github/workflows/aws-deploy.yml` authenticates with AWS through GitHub OIDC, packages the Lambda backend, deploys `infra/cloudformation/main.yml`, pushes Razorpay/runtime configuration from GitHub Actions into AWS Secrets Manager, builds the static site, syncs it to the private S3 origin, and invalidates CloudFront.
+
+GitHub Pages remains a built-static fallback during migration. It publishes only `dist/`; backend and infrastructure files are not part of the Pages artifact.
+
+Paid checkout and live exam workers are disabled by default until the AWS stack, Razorpay test-mode flow, and live worker lifecycle are validated.
+
+## Pro CKAD / CKS simulator
+
+The optional Pro experience uses generic exam credits:
+
+- Free: 2 trial credits
+- Bronze: 5 credits / ₹699
+- Silver: 10 credits / ₹1,379
+- Gold: 20 credits / ₹2,699
+
+One credit starts one two-hour CKAD or CKS simulator session. The current paid exam baseline is Kubernetes v1.35, independent of the v1.37 learning-content baseline.
+
+The original task bank is mapped to the public Linux Foundation/CNCF competencies and currently provides four CKAD catalogue forms and four CKS catalogue forms. CI verifies competency coverage and official domain weighting. The project does not copy or reproduce confidential certification exam questions.
+
+See `AWS_PRODUCT_ARCHITECTURE.md` for the CloudFormation, Razorpay, Secrets Manager and live-worker design.
 
 ## Primary references
 

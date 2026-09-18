@@ -1,0 +1,180 @@
+name: Deploy Learn Kubernetes to AWS
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'index.html'
+      - 'pro.html'
+      - 'styles*.css'
+      - 'src/**'
+      - 'backend/**'
+      - 'infra/cloudformation/**'
+      - 'scripts/build-site.mjs'
+      - 'package.json'
+      - '.github/workflows/aws-deploy.yml'
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: learn-k8s-aws-prod
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: ${{ vars.AWS_ROLE_ARN != '' }}
+    runs-on: ubuntu-latest
+    environment: production
+
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION || 'ap-south-1' }}
+      STACK_NAME: learn-k8s
+      ENABLE_LIVE_LABS: ${{ vars.ENABLE_LIVE_LABS || 'false' }}
+      PAID_EXAMS_ENABLED: ${{ vars.PAID_EXAMS_ENABLED || 'false' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Validate learning site
+        run: npm run validate
+
+      - name: Compile backend and validate catalogues
+        run: |
+          python3 -m py_compile backend/app.py backend/exam_catalog.py backend/validate_catalog.py
+          PYTHONPATH=backend python3 backend/validate_catalog.py
+
+      - name: Configure AWS credentials through OIDC
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: learn-k8s-github-deploy
+
+      - name: Validate CloudFormation
+        run: aws cloudformation validate-template --template-body file://infra/cloudformation/main.yml >/dev/null
+
+      - name: Prepare Lambda artifact bucket
+        shell: bash
+        run: |
+          set -euo pipefail
+          ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
+          ARTIFACT_BUCKET="learn-k8s-deploy-${ACCOUNT_ID}-${AWS_REGION}"
+          echo "ARTIFACT_BUCKET=${ARTIFACT_BUCKET}" >> "$GITHUB_ENV"
+
+          if ! aws s3api head-bucket --bucket "${ARTIFACT_BUCKET}" 2>/dev/null; then
+            if [ "${AWS_REGION}" = "us-east-1" ]; then
+              aws s3api create-bucket --bucket "${ARTIFACT_BUCKET}" >/dev/null
+            else
+              aws s3api create-bucket                 --bucket "${ARTIFACT_BUCKET}"                 --create-bucket-configuration "LocationConstraint=${AWS_REGION}" >/dev/null
+            fi
+            aws s3api put-public-access-block               --bucket "${ARTIFACT_BUCKET}"               --public-access-block-configuration               BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
+          fi
+
+          cat >/tmp/artifact-lifecycle.json <<'JSON'
+          {
+            "Rules": [
+              {
+                "ID": "expire-lambda-artifacts",
+                "Status": "Enabled",
+                "Filter": {"Prefix": "lambda/"},
+                "Expiration": {"Days": 30}
+              }
+            ]
+          }
+          JSON
+          aws s3api put-bucket-lifecycle-configuration \
+            --bucket "${ARTIFACT_BUCKET}" \
+            --lifecycle-configuration file:///tmp/artifact-lifecycle.json
+          rm -f /tmp/artifact-lifecycle.json
+
+      - name: Package Lambda
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd backend && zip -q -r ../backend.zip app.py exam_catalog.py)
+          LAMBDA_KEY="lambda/${GITHUB_SHA}.zip"
+          aws s3 cp backend.zip "s3://${ARTIFACT_BUCKET}/${LAMBDA_KEY}" --only-show-errors
+          echo "LAMBDA_KEY=${LAMBDA_KEY}" >> "$GITHUB_ENV"
+
+      - name: Resolve CloudFront managed prefix list
+        shell: bash
+        run: |
+          set -euo pipefail
+          PREFIX_LIST_ID="$(aws ec2 describe-managed-prefix-lists             --filters Name=prefix-list-name,Values=com.amazonaws.global.cloudfront.origin-facing             --query 'PrefixLists[0].PrefixListId'             --output text)"
+          echo "CLOUDFRONT_PREFIX_LIST_ID=${PREFIX_LIST_ID}" >> "$GITHUB_ENV"
+
+      - name: Deploy CloudFormation
+        shell: bash
+        run: |
+          set -euo pipefail
+          aws cloudformation deploy             --stack-name "$STACK_NAME"             --template-file infra/cloudformation/main.yml             --capabilities CAPABILITY_NAMED_IAM             --no-fail-on-empty-changeset             --parameter-overrides               AppName=learn-k8s               LambdaCodeBucket="${ARTIFACT_BUCKET}"               LambdaCodeKey="${LAMBDA_KEY}"               EnableLiveLabs="${ENABLE_LIVE_LABS}"               CloudFrontPrefixListId="${CLOUDFRONT_PREFIX_LIST_ID}"
+
+      - name: Export stack outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          output() {
+            aws cloudformation describe-stacks               --stack-name "$STACK_NAME"               --query "Stacks[0].Outputs[?OutputKey=='$1'].OutputValue | [0]"               --output text
+          }
+
+          echo "LEARN_K8S_API_URL=$(output ApiUrl)" >> "$GITHUB_ENV"
+          echo "COGNITO_CLIENT_ID=$(output CognitoClientId)" >> "$GITHUB_ENV"
+          echo "COGNITO_USER_POOL_ID=$(output CognitoUserPoolId)" >> "$GITHUB_ENV"
+          echo "SITE_BUCKET=$(output SiteBucket)" >> "$GITHUB_ENV"
+          echo "CF_DISTRIBUTION_ID=$(output SiteDistributionId)" >> "$GITHUB_ENV"
+          echo "SITE_URL=$(output SiteUrl)" >> "$GITHUB_ENV"
+          echo "APP_CONFIG_SECRET_ARN=$(output AppConfigSecretArn)" >> "$GITHUB_ENV"
+
+      - name: Push GitHub secrets and pricing config to Secrets Manager
+        shell: bash
+        env:
+          RAZORPAY_KEY_ID: ${{ secrets.RAZORPAY_KEY_ID }}
+          RAZORPAY_KEY_SECRET: ${{ secrets.RAZORPAY_KEY_SECRET }}
+          RAZORPAY_WEBHOOK_SECRET: ${{ secrets.RAZORPAY_WEBHOOK_SECRET }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY' >/tmp/learn-k8s-secret.json
+          import json, os
+          config = {
+              "razorpay_key_id": os.environ.get("RAZORPAY_KEY_ID", ""),
+              "razorpay_key_secret": os.environ.get("RAZORPAY_KEY_SECRET", ""),
+              "razorpay_webhook_secret": os.environ.get("RAZORPAY_WEBHOOK_SECRET", ""),
+              "paid_exams_enabled": os.environ.get("PAID_EXAMS_ENABLED", "false"),
+              "enable_live_labs": os.environ.get("ENABLE_LIVE_LABS", "false"),
+              "plans": {
+                  "bronze": {"name":"Bronze", "credits":5, "amount":69900, "currency":"INR"},
+                  "silver": {"name":"Silver", "credits":10, "amount":137900, "currency":"INR"},
+                  "gold": {"name":"Gold", "credits":20, "amount":269900, "currency":"INR"},
+              },
+          }
+          print(json.dumps(config, separators=(",", ":")))
+          PY
+
+          aws secretsmanager put-secret-value             --secret-id "$APP_CONFIG_SECRET_ARN"             --secret-string file:///tmp/learn-k8s-secret.json >/dev/null
+          rm -f /tmp/learn-k8s-secret.json
+
+      - name: Build static site
+        run: npm run build
+
+      - name: Upload site to S3
+        run: aws s3 sync dist/ "s3://$SITE_BUCKET/" --delete --only-show-errors
+
+      - name: Invalidate CloudFront
+        run: aws cloudfront create-invalidation --distribution-id "$CF_DISTRIBUTION_ID" --paths '/*' >/dev/null
+
+      - name: Deployment summary
+        run: |
+          echo "### Learn Kubernetes AWS deployment" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Site: $SITE_URL" >> "$GITHUB_STEP_SUMMARY"
+          echo "- API: $LEARN_K8S_API_URL" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Paid exams enabled: $PAID_EXAMS_ENABLED" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Live labs enabled: $ENABLE_LIVE_LABS" >> "$GITHUB_STEP_SUMMARY"

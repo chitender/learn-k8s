@@ -96,7 +96,7 @@ function shell(content, activeId = null, activePage = null) {
           <button class="ghost-btn ${activePage === 'progress' ? 'active' : ''}" data-page="progress">Progress</button>
           <span class="badge version-pill hide-sm">Validated · K8s ${SITE_META.kubernetesBaseline}</span>
           <span class="badge hide-sm">L${progress.current.level} · ${progress.xp} XP</span>
-          <a class="ghost-btn" href="https://github.com/chitender/learn-k8s" target="_blank" rel="noreferrer">GitHub ↗</a>
+          <a class="primary-btn" href="./pro.html">Pro Exams</a>\n          <a class="ghost-btn" href="https://github.com/chitender/learn-k8s" target="_blank" rel="noreferrer">GitHub ↗</a>
         </div>
       </header>
       <div class="layout">

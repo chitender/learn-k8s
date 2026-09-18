@@ -1,0 +1,622 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Learn Kubernetes static site, paid exam API, Razorpay integration, and optional ephemeral exam labs.
+
+Parameters:
+  AppName:
+    Type: String
+    Default: learn-k8s
+  LambdaCodeBucket:
+    Type: String
+  LambdaCodeKey:
+    Type: String
+  EnableLiveLabs:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+  LabInstanceType:
+    Type: String
+    Default: t3a.medium
+  CloudFrontPrefixListId:
+    Type: String
+    Default: pl-00000000000000000
+  GatewayAmiId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-arm64
+  WorkerAmiId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
+
+Conditions:
+  LiveLabsEnabled: !Equals [!Ref EnableLiveLabs, 'true']
+
+Resources:
+  AppConfigSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub '${AppName}/app-config'
+      Description: Runtime payment, plan, and feature configuration pushed from GitHub Actions.
+
+  SiteBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+
+  SiteOAC:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub '${AppName}-oac'
+        Description: Private S3 origin access
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  SiteDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        IPV6Enabled: true
+        DefaultRootObject: index.html
+        PriceClass: PriceClass_200
+        Origins:
+          - Id: site
+            DomainName: !GetAtt SiteBucket.RegionalDomainName
+            OriginAccessControlId: !GetAtt SiteOAC.Id
+            S3OriginConfig:
+              OriginAccessIdentity: ''
+        DefaultCacheBehavior:
+          TargetOriginId: site
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods: [GET, HEAD, OPTIONS]
+          CachedMethods: [GET, HEAD]
+          Compress: true
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+        CustomErrorResponses:
+          - ErrorCode: 403
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+            ErrorCachingMinTTL: 0
+          - ErrorCode: 404
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+            ErrorCachingMinTTL: 0
+        ViewerCertificate:
+          CloudFrontDefaultCertificate: true
+
+  SiteBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref SiteBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowCloudFrontRead
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource: !Sub '${SiteBucket.Arn}/*'
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub 'arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${SiteDistribution}'
+
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub '${AppName}-users'
+      UsernameAttributes: [email]
+      AutoVerifiedAttributes: [email]
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: false
+          RequireUppercase: true
+          TemporaryPasswordValidityDays: 7
+
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: !Sub '${AppName}-web'
+      UserPoolId: !Ref UserPool
+      GenerateSecret: false
+      PreventUserExistenceErrors: ENABLED
+      ExplicitAuthFlows:
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+        - ALLOW_USER_SRP_AUTH
+
+  EntitlementsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${AppName}-entitlements'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: user_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: user_id
+          KeyType: HASH
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+
+  PaymentsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${AppName}-payments'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: order_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: order_id
+          KeyType: HASH
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+
+  SessionsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub '${AppName}-exam-sessions'
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: session_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: session_id
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: expires_at
+        Enabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+
+  LabWorkerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${AppName}-lab-worker-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+
+  LabWorkerInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: !Sub '${AppName}-lab-worker-profile'
+      Roles: [!Ref LabWorkerRole]
+
+  ApiRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${AppName}-api-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: LearnK8sApi
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:Scan
+                Resource:
+                  - !GetAtt EntitlementsTable.Arn
+                  - !GetAtt PaymentsTable.Arn
+                  - !GetAtt SessionsTable.Arn
+              - Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource: !Ref AppConfigSecret
+              - Effect: Allow
+                Action:
+                  - ec2:RunInstances
+                  - ec2:DescribeInstances
+                  - ec2:DescribeInstanceStatus
+                  - ec2:TerminateInstances
+                  - ec2:CreateTags
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - ssm:SendCommand
+                  - ssm:GetCommandInvocation
+                  - ssm:GetParameter
+                  - ssm:DescribeInstanceInformation
+                Resource: '*'
+              - Effect: Allow
+                Action: iam:PassRole
+                Resource: !GetAtt LabWorkerRole.Arn
+
+  ApiLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${AppName}-api'
+      RetentionInDays: 14
+
+  ApiFunction:
+    Type: AWS::Lambda::Function
+    DependsOn: ApiLogGroup
+    Properties:
+      FunctionName: !Sub '${AppName}-api'
+      Runtime: python3.13
+      Handler: app.handler
+      Role: !GetAtt ApiRole.Arn
+      Timeout: 30
+      MemorySize: 256
+      Code:
+        S3Bucket: !Ref LambdaCodeBucket
+        S3Key: !Ref LambdaCodeKey
+      Environment:
+        Variables:
+          ENTITLEMENTS_TABLE: !Ref EntitlementsTable
+          PAYMENTS_TABLE: !Ref PaymentsTable
+          SESSIONS_TABLE: !Ref SessionsTable
+          APP_SECRET_ARN: !Ref AppConfigSecret
+          LAB_SUBNET_ID: !If [LiveLabsEnabled, !Ref LabSubnet, '']
+          LAB_SECURITY_GROUP_ID: !If [LiveLabsEnabled, !Ref LabWorkerSecurityGroup, '']
+          LAB_INSTANCE_PROFILE: !Ref LabWorkerInstanceProfile
+          LAB_GATEWAY_INSTANCE_ID: !If [LiveLabsEnabled, !Ref LabGateway, '']
+          LAB_BASE_URL: !If
+            - LiveLabsEnabled
+            - !Join ['', ['https://', !GetAtt LabDistribution.DomainName]]
+            - ''
+          LAB_INSTANCE_TYPE: !Ref LabInstanceType
+          LAB_WORKER_AMI: !Ref WorkerAmiId
+
+  HttpApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: !Sub '${AppName}-api'
+      ProtocolType: HTTP
+      CorsConfiguration:
+        AllowOrigins: ['*']
+        AllowHeaders: [authorization, content-type, x-razorpay-signature]
+        AllowMethods: [GET, POST, OPTIONS]
+        MaxAge: 3600
+
+  ApiIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref HttpApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !GetAtt ApiFunction.Arn
+      PayloadFormatVersion: '2.0'
+
+  CognitoAuthorizer:
+    Type: AWS::ApiGatewayV2::Authorizer
+    Properties:
+      ApiId: !Ref HttpApi
+      AuthorizerType: JWT
+      Name: cognito
+      IdentitySource:
+        - '$request.header.Authorization'
+      JwtConfiguration:
+        Audience: [!Ref UserPoolClient]
+        Issuer: !Sub 'https://cognito-idp.${AWS::Region}.amazonaws.com/${UserPool}'
+
+  HealthRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: 'GET /health'
+      Target: !Sub 'integrations/${ApiIntegration}'
+
+  PlansRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: 'GET /plans'
+      Target: !Sub 'integrations/${ApiIntegration}'
+
+  CatalogsRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: 'GET /exams/catalogs'
+      Target: !Sub 'integrations/${ApiIntegration}'
+
+  WebhookRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: 'POST /payments/webhook'
+      Target: !Sub 'integrations/${ApiIntegration}'
+
+  EntitlementsRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: 'GET /me/entitlements'
+      Target: !Sub 'integrations/${ApiIntegration}'
+      AuthorizationType: JWT
+      AuthorizerId: !Ref CognitoAuthorizer
+
+  PaymentOrderRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: 'POST /payments/order'
+      Target: !Sub 'integrations/${ApiIntegration}'
+      AuthorizationType: JWT
+      AuthorizerId: !Ref CognitoAuthorizer
+
+  PaymentVerifyRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: 'POST /payments/verify'
+      Target: !Sub 'integrations/${ApiIntegration}'
+      AuthorizationType: JWT
+      AuthorizerId: !Ref CognitoAuthorizer
+
+  StartExamRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: 'POST /exams/start'
+      Target: !Sub 'integrations/${ApiIntegration}'
+      AuthorizationType: JWT
+      AuthorizerId: !Ref CognitoAuthorizer
+
+  SessionRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: 'GET /exams/session/{session_id}'
+      Target: !Sub 'integrations/${ApiIntegration}'
+      AuthorizationType: JWT
+      AuthorizerId: !Ref CognitoAuthorizer
+
+  SubmitExamRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: 'POST /exams/session/{session_id}/submit'
+      Target: !Sub 'integrations/${ApiIntegration}'
+      AuthorizationType: JWT
+      AuthorizerId: !Ref CognitoAuthorizer
+
+  ApiStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref HttpApi
+      StageName: '$default'
+      AutoDeploy: true
+
+  ApiLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref ApiFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${HttpApi}/*/*'
+
+  CleanupRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub '${AppName}-exam-cleanup'
+      ScheduleExpression: rate(5 minutes)
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt ApiFunction.Arn
+          Id: api
+          Input: '{"source":"learn-k8s.cleanup"}'
+
+  CleanupPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref ApiFunction
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt CleanupRule.Arn
+
+  LabVpc:
+    Type: AWS::EC2::VPC
+    Condition: LiveLabsEnabled
+    Properties:
+      CidrBlock: 10.77.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${AppName}-labs'
+
+  LabInternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Condition: LiveLabsEnabled
+
+  LabGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Condition: LiveLabsEnabled
+    Properties:
+      VpcId: !Ref LabVpc
+      InternetGatewayId: !Ref LabInternetGateway
+
+  LabSubnet:
+    Type: AWS::EC2::Subnet
+    Condition: LiveLabsEnabled
+    Properties:
+      VpcId: !Ref LabVpc
+      CidrBlock: 10.77.10.0/24
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Select [0, !GetAZs '']
+
+  LabRouteTable:
+    Type: AWS::EC2::RouteTable
+    Condition: LiveLabsEnabled
+    Properties:
+      VpcId: !Ref LabVpc
+
+  LabDefaultRoute:
+    Type: AWS::EC2::Route
+    Condition: LiveLabsEnabled
+    DependsOn: LabGatewayAttachment
+    Properties:
+      RouteTableId: !Ref LabRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref LabInternetGateway
+
+  LabRouteAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Condition: LiveLabsEnabled
+    Properties:
+      SubnetId: !Ref LabSubnet
+      RouteTableId: !Ref LabRouteTable
+
+  LabGatewaySecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Condition: LiveLabsEnabled
+    Properties:
+      GroupDescription: CloudFront-only HTTP to exam gateway
+      VpcId: !Ref LabVpc
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          SourcePrefixListId: !Ref CloudFrontPrefixListId
+      SecurityGroupEgress:
+        - IpProtocol: '-1'
+          CidrIp: 0.0.0.0/0
+
+  LabWorkerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Condition: LiveLabsEnabled
+    Properties:
+      GroupDescription: ttyd only from exam gateway
+      VpcId: !Ref LabVpc
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 7681
+          ToPort: 7681
+          SourceSecurityGroupId: !Ref LabGatewaySecurityGroup
+      SecurityGroupEgress:
+        - IpProtocol: '-1'
+          CidrIp: 0.0.0.0/0
+
+  LabGateway:
+    Type: AWS::EC2::Instance
+    Condition: LiveLabsEnabled
+    Properties:
+      ImageId: !Ref GatewayAmiId
+      InstanceType: t4g.nano
+      SubnetId: !Ref LabSubnet
+      SecurityGroupIds: [!Ref LabGatewaySecurityGroup]
+      IamInstanceProfile: !Ref LabWorkerInstanceProfile
+      MetadataOptions:
+        HttpTokens: required
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: 8
+            VolumeType: gp3
+            Encrypted: true
+            DeleteOnTermination: true
+      UserData:
+        Fn::Base64: |
+          #!/bin/bash
+          set -eux
+          dnf install -y nginx
+          mkdir -p /etc/nginx/lab-routes
+          cat >/etc/nginx/nginx.conf <<'NGINX'
+          events {}
+          http {
+            map $http_upgrade $connection_upgrade { default upgrade; '' close; }
+            server {
+              listen 80 default_server;
+              location = /health {
+                add_header Content-Type text/plain;
+                return 200 'ok';
+              }
+              include /etc/nginx/lab-routes/*.conf;
+            }
+          }
+          NGINX
+          systemctl enable --now nginx
+      Tags:
+        - Key: Name
+          Value: !Sub '${AppName}-lab-gateway'
+
+  LabOriginRequestPolicy:
+    Type: AWS::CloudFront::OriginRequestPolicy
+    Condition: LiveLabsEnabled
+    Properties:
+      OriginRequestPolicyConfig:
+        Name: !Sub '${AppName}-labs-origin'
+        CookiesConfig:
+          CookieBehavior: all
+        HeadersConfig:
+          HeaderBehavior: allViewer
+        QueryStringsConfig:
+          QueryStringBehavior: all
+
+  LabDistribution:
+    Type: AWS::CloudFront::Distribution
+    Condition: LiveLabsEnabled
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        IPV6Enabled: true
+        PriceClass: PriceClass_100
+        Origins:
+          - Id: lab-gateway
+            DomainName: !GetAtt LabGateway.PublicDnsName
+            CustomOriginConfig:
+              HTTPPort: 80
+              HTTPSPort: 443
+              OriginProtocolPolicy: http-only
+              OriginSSLProtocols: [TLSv1.2]
+        DefaultCacheBehavior:
+          TargetOriginId: lab-gateway
+          ViewerProtocolPolicy: https-only
+          AllowedMethods: [GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE]
+          CachedMethods: [GET, HEAD]
+          CachePolicyId: 413f8ce8-2d5b-4a9d-8ce9-41b5ccace10d
+          OriginRequestPolicyId: !Ref LabOriginRequestPolicy
+          Compress: false
+        ViewerCertificate:
+          CloudFrontDefaultCertificate: true
+
+Outputs:
+  SiteBucket:
+    Value: !Ref SiteBucket
+  SiteUrl:
+    Value: !Sub 'https://${SiteDistribution.DomainName}'
+  SiteDistributionId:
+    Value: !Ref SiteDistribution
+  ApiUrl:
+    Value: !GetAtt HttpApi.ApiEndpoint
+  CognitoUserPoolId:
+    Value: !Ref UserPool
+  CognitoClientId:
+    Value: !Ref UserPoolClient
+  AppConfigSecretArn:
+    Value: !Ref AppConfigSecret
+  LabUrl:
+    Value: !If
+      - LiveLabsEnabled
+      - !Join ['', ['https://', !GetAtt LabDistribution.DomainName]]
+      - ''

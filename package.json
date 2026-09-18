@@ -4,7 +4,8 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "validate": "node scripts/validate.mjs && node scripts/validate-incidents.mjs"
+    "validate": "node scripts/validate.mjs && node scripts/validate-incidents.mjs",
+    "build": "node scripts/build-site.mjs"
   },
   "engines": {
     "node": ">=20"
