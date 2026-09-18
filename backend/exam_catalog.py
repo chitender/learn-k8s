@@ -3,7 +3,7 @@ EXAM_BASELINE = "Kubernetes v1.35"
 EXAM_GUIDE = {
     "CKAD": {
         "duration_minutes": 120,
-        "source": "Linux Foundation / CNCF public CKAD curriculum",
+        "source": "Linux Foundation / CNCF public CKAD curriculum",\n        "source_url": "https://training.linuxfoundation.org/certification/certified-kubernetes-application-developer-ckad/",
         "domains": {
             "design_build": {
                 "name": "Application Design and Build",
@@ -43,7 +43,7 @@ EXAM_GUIDE = {
     },
     "CKS": {
         "duration_minutes": 120,
-        "source": "Linux Foundation public CKS curriculum",
+        "source": "Linux Foundation public CKS curriculum",\n        "source_url": "https://training.linuxfoundation.org/certification/certified-kubernetes-security-specialist/",
         "domains": {
             "cluster_setup": {
                 "name": "Cluster Setup",
