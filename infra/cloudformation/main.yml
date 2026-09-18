@@ -35,7 +35,6 @@ Resources:
     Properties:
       Name: !Sub '${AppName}/app-config'
       Description: Runtime payment, plan, and feature configuration pushed from GitHub Actions.
-      SecretString: '{}'
 
   SiteBucket:
     Type: AWS::S3::Bucket
