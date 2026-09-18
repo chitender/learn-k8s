@@ -11,6 +11,7 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -26,23 +27,13 @@ jobs:
       - name: Build static site
         run: npm run build
 
-      - name: Compile backend
-        run: python3 -m py_compile backend/app.py backend/exam_blueprints.py
+      - name: Compile backend and validate exam catalogues
+        run: |
+          python3 -m py_compile backend/app.py backend/exam_catalog.py backend/validate_catalog.py
+          PYTHONPATH=backend python3 backend/validate_catalog.py
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: '1.16.3'
-          terraform_wrapper: false
+      - name: Install CloudFormation linter
+        run: python3 -m pip install --quiet cfn-lint
 
-      - name: Terraform format check
-        working-directory: infra/terraform
-        run: terraform fmt -check -recursive
-
-      - name: Terraform init without backend
-        working-directory: infra/terraform
-        run: terraform init -backend=false
-
-      - name: Terraform validate
-        working-directory: infra/terraform
-        run: terraform validate
+      - name: Validate CloudFormation
+        run: cfn-lint infra/cloudformation/main.yml
