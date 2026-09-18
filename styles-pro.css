@@ -14,3 +14,9 @@
 .exam-terminal{min-height:440px;border:1px solid var(--border);border-radius:16px;background:#02070d;padding:18px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
 .pro-status{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 @media(max-width:760px){.pro-hero,.pro-price-grid,.pro-auth,.exam-cockpit{grid-template-columns:1fr}.pro-nav{padding:0 12px}}
+
+.plan-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-top:18px}
+.plan-grid .pro-card{display:flex;flex-direction:column;align-items:flex-start}
+.plan-grid .pro-card .primary-btn{margin-top:auto}
+@media(max-width:980px){.plan-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.plan-grid{grid-template-columns:1fr}}
