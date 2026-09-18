@@ -66,11 +66,33 @@ async function startExam(exam){
   const result=await api('/exams/start',{method:'POST',body:JSON.stringify({exam_type:exam})});
   activeSession=result;
   renderExam(result);
+  if(result.status==='provisioning') pollSession(result.session_id);
+}
+
+async function pollSession(sessionId){
+  for(let i=0;i<48;i++){
+    await new Promise(resolve=>setTimeout(resolve,5000));
+    const result=await api(`/exams/session/${sessionId}`);
+    activeSession=result;
+    renderExam(result);
+    if(result.status!=='provisioning') return;
+  }
+  msg('The lab is still provisioning. You can retry from this page shortly.','warn');
+}
+
+async function submitExam(sessionId){
+  if(!window.confirm('Submit this exam now? The live worker will be terminated and you cannot continue editing the cluster.')) return;
+  const result=await api(`/exams/session/${sessionId}/submit`,{method:'POST',body:'{}'});
+  activeSession=null;
+  const host=document.querySelector('#exam-host');
+  if(host) host.innerHTML=`<section class="pro-card" style="margin-top:24px"><div class="eyebrow">Attempt submitted</div><h2>Score: ${result.score}/${result.max_score}</h2><div class="exam-tasks">${result.results.map(r=>`<div class="exam-task"><strong>${r.passed?'✓':'✗'} ${r.title}</strong><br><small>${r.weight}%</small></div>`).join('')}</div></section>`;
 }
 
 function renderExam(exam){
   const host=document.querySelector('#exam-host'); if(!host) return;
-  host.innerHTML=`<section class="pro-card" style="margin-top:24px"><div class="section-head"><div><div class="eyebrow">${exam.exam_type} attempt</div><h2>Exam cockpit</h2></div><span class="badge">${exam.status}</span></div><div class="exam-cockpit"><div class="exam-tasks">${(exam.tasks||[]).map((task,i)=>`<button class="exam-task"><strong>${i+1}. ${task.title}</strong><br><small>${task.weight}%</small></button>`).join('')}</div><div class="exam-terminal"><div class="cyan">Session: ${exam.session_id}</div><div>Time limit: 120 minutes</div><br>${exam.terminal_url?`<a class="primary-btn" target="_blank" rel="noreferrer" href="${exam.terminal_url}">Open live terminal ↗</a>`:'<div class="amber">Lab is provisioning. Refresh session status shortly.</div>'}</div></div></section>`;
+  const expires = exam.expires_at ? new Date(exam.expires_at*1000).toLocaleTimeString() : '';
+  host.innerHTML=`<section class="pro-card" style="margin-top:24px"><div class="section-head"><div><div class="eyebrow">${exam.exam_type} attempt</div><h2>Exam cockpit</h2></div><span class="badge">${exam.status}</span></div><div class="callout"><strong>Original practice tasks</strong><p>These tasks are written for Learn Kubernetes from the public CNCF domains; they are not copied from the live certification exam.</p></div><div class="exam-cockpit"><div class="exam-tasks">${(exam.tasks||[]).map((task,i)=>`<button class="exam-task" data-task-index="${i}"><strong>${i+1}. ${task.title}</strong><br><small>${task.weight}%</small><p>${task.prompt||''}</p></button>`).join('')}</div><div class="exam-terminal"><div class="cyan">Session: ${exam.session_id}</div><div>Expires: ${expires}</div><div>Time limit: 120 minutes</div><br>${exam.terminal_url?`<div class="green">Lab ready</div><p>Terminal login: <strong>${exam.terminal_username}</strong> / <strong>${exam.terminal_password}</strong></p><a class="primary-btn" target="_blank" rel="noreferrer" href="${exam.terminal_url}">Open live terminal ↗</a><button class="danger-btn" id="submit-exam" style="margin-left:8px">Submit & grade</button>`:'<div class="amber">Lab is provisioning. This page checks readiness automatically.</div>'}</div></div></section>`;
+  document.querySelector('#submit-exam')?.addEventListener('click',()=>submitExam(exam.session_id).catch(e=>msg(e.message,'danger')));
 }
 
 function bind(){
